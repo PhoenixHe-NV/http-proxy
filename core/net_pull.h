@@ -15,6 +15,6 @@ int net_pull_set_handler(int fd, net_pull_handler_t handler, void* data);
 
 int net_pull_del(int fd);
 
-int net_pull_finalize();
+int net_pull_done();
 
 #endif

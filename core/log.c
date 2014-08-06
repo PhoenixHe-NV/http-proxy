@@ -78,7 +78,7 @@ void proxy_log_init() {
     PLOGD("Init log file with stderr");
 }
 
-void proxy_log_finalize() {
+void proxy_log_done() {
     PLOGD("Closing log file");
     fclose(arg.log_file);
 }

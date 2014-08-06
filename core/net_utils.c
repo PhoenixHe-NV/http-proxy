@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/fcntl.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -9,49 +10,7 @@
 
 #include "net_utils.h"
 
-int proxy_net_bind(char* addr, int port) {
-    PLOGI("Trying to bind to %s:%d", addr, port);
-    struct sockaddr_in server_addr;
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
-    // TODO: use getaddrinfo()
-    if (inet_aton(addr, &(server_addr.sin_addr)) == 0) {
-        PLOGE("inet_aton failed for addr: %s", addr);
-        return -1;
-    }
-
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) {
-        PLOGUE("socket");
-        return -1;
-    }
-
-    int flag = 0;
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag , sizeof(int)) < 0) {
-        PLOGUE("setsockopt: SO_REUSEADDR");
-        goto bind_failed;
-    }
-
-    if (bind(fd, (struct sockaddr*)&server_addr, sizeof(struct sockaddr)) < 0) {
-        PLOGUE("bind");
-        goto bind_failed;
-    }
-
-    if (listen(fd, 16) < 0) {
-        PLOGUE("listen");
-        goto bind_failed;
-    }
-
-    PLOGI("Bind success");
-    return fd;
-
-bind_failed:
-    close(fd);
-    return -1;
-}
-
-int proxy_net_connect(char* addr, int port) {
+int proxy_net_connect(struct sockaddr* addr, int port) {
     return -1;
 }
 
@@ -72,7 +31,29 @@ int proxy_net_setnonblocking(int fd) {
 }
 
 int proxy_epoll_err(struct epoll_event ev) {
-    PLOGD("event: %d", ev.events);
-    PLOGD("EPOLLERR: %d, EPOLLHUP: %d", EPOLLERR, EPOLLHUP);
     return ev.events & EPOLLERR || ev.events & EPOLLHUP;
+}
+
+const char* proxy_net_tostring(int family, char* addr) {
+    static char buf[256];
+/*
+    int ret = getnameinfo(addr, sizeof(struct sockaddr), 
+            buf, sizeof(buf), NULL, 0, NI_NAMEREQD);
+    if (ret)
+        return gai_strerror(ret);
+    return buf;
+    */
+    PLOGD("%d", family);
+    inet_ntop(family, addr, buf, 256);
+    return buf;
+}
+
+int proxy_net_dns_lookup(char* host, char* service, struct addrinfo** result) {
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    
+    int ret = getaddrinfo(host, service, &hints, result);
+    return ret;
 }

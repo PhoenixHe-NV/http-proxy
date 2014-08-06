@@ -121,7 +121,14 @@ int net_pull_del(int fd) {
     return 0;
 }
 
-int net_pull_finalize() {
-    HASH_CLEAR(hh, handlers);
+int net_pull_done() {
+    struct net_handler_t *h, *tmp;
+    PLOGD("Notice all the handler to close connections");
+    struct epoll_event close_ev;
+    close_ev.events = EPOLLERR;
+    HASH_ITER(hh, handlers, h, tmp) {
+        if (h->handler)
+            h->handler(close_ev, h->data);
+    }
     return 0;
 }

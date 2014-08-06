@@ -24,7 +24,7 @@ struct async_cxt {
 
 void async_init(struct async_cxt* cxt);
 
-void async_fina(struct async_cxt* cxt);
+void async_done(struct async_cxt* cxt);
 
 void async_call(struct async_cxt* cxt, int (*func)(void*), void* data);
 

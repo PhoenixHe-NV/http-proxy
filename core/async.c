@@ -1,11 +1,10 @@
-#include "stdarg.h"
+#include <stdarg.h>
 
 #include "log.h"
 #include "mem.h"
+#include "constants.h"
 
 #include "async.h"
-
-#define ASYNC_STACK_SIZE 32*1024
 
 static ucontext_t main_cxt;
 static struct async_cxt* call_cxt = NULL;
@@ -21,7 +20,7 @@ void async_init(struct async_cxt* cxt) {
     cxt->uc.uc_link = &main_cxt;
 }
 
-void async_fina(struct async_cxt* cxt) {
+void async_done(struct async_cxt* cxt) {
     PLOGD("free async_cxt");
     mem_free(cxt->uc.uc_stack.ss_sp);
 }
@@ -37,7 +36,6 @@ void async_call(struct async_cxt* cxt, int (*func)(void*), void* data) {
 }
 
 int async_yield(int data_type, void* data) {
-    PLOGD("%p", call_cxt);
     call_cxt->stat = ASYNC_PAUSE;
     call_cxt->yield_type = data_type;
     call_cxt->yield_data = data;
@@ -57,7 +55,6 @@ void async_resume(struct async_cxt* cxt, int retval) {
     yield_ret = retval;
 
     PLOGD("Switching to handler context!");
-    PLOGD("%p", cxt);
     swapcontext(&main_cxt, &cxt->uc);
     PLOGD("Handler returned");
 

@@ -34,14 +34,14 @@ void mem_incref(void* ptr) {
     ++MEM_CNT(ptr);
 }
 
-int mem_decref(void* ptr, void (*finalize)(void*)) {
+int mem_decref(void* ptr, void (*done)(void*)) {
     if (--MEM_CNT(ptr) == 0) {
-        if (finalize) finalize(ptr);
+        if (done) done(ptr);
         mem_free((ssize_t*)ptr-1);
         return 0;
     }
     return 1;
 }
 
-void mem_finalize() {
+void mem_done() {
 }

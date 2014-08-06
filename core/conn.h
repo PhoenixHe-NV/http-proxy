@@ -6,10 +6,17 @@
 
 #include "utlib.h"
 #include "async.h"
-#include "iobuf.h"
 
 enum conn_stat {
     CONN_USED, CONN_FREE, CONN_CLOSED
+};
+
+struct conn_endpoint {
+    int family, port;
+    union {
+        struct in_addr v4;
+        struct in6_addr v6;
+    } addr;
 };
 
 // NOTICE: autoptr
@@ -19,7 +26,7 @@ struct conn {
     char* buf;
     int buf_cap, buf_s, buf_e;
     enum conn_stat stat;
-    struct sockaddr addr;
+    struct conn_endpoint ep;
 };
 
 
@@ -31,13 +38,13 @@ struct conn_notice {
     int fd, flag;
 };
 
-void conn_fina(struct conn* conn);
+void conn_done(struct conn* conn);
 
 typedef int (*conn_handler_t)(struct conn* conn);
 
 int conn_module_init();
 
-void conn_module_fina();
+void conn_module_done();
 
 void conn_set_accept_handler(conn_handler_t handler);
 
@@ -45,7 +52,7 @@ void conn_set_accept_handler(conn_handler_t handler);
 void conn_free(struct conn* conn);
 
 // ASYNC funcs
-struct conn* conn_get_by_addr(struct sockaddr* addr);
+struct conn* conn_get_by_addr(struct endpoint* ep);
 
 void conn_close(struct conn* conn);
 

@@ -15,7 +15,7 @@
 void _PROXY_LOG(int level, const char* extra_info, int line, const char* desc, ...);
 
 void proxy_log_init();
-void proxy_log_finalize();
+void proxy_log_done();
 
 
 #ifdef NDEBUG

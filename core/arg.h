@@ -13,6 +13,6 @@ struct proxy_arg_t {
 
 extern struct proxy_arg_t arg;
 
-int proxy_prase_arg(int argc, char** argv);
+int proxy_parse_arg(int argc, char** argv);
 
 #endif

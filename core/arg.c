@@ -23,7 +23,7 @@ static int usage(char* reason, char* exe) {
     return -1;
 }
 
-static int prase_addr(char* addr) {
+static int parse_addr(char* addr) {
     if (addr == NULL)
         return -1;
     arg.addr = addr;
@@ -31,7 +31,7 @@ static int prase_addr(char* addr) {
     return 0;
 }
 
-static int prase_log_file(char* file) {
+static int parse_log_file(char* file) {
     if (file == NULL)
         return -1;
     arg.log_file = fopen(file, "w");
@@ -43,7 +43,7 @@ static int prase_log_file(char* file) {
     return 0;
 }
 
-static int prase_port(char* port) {
+static int parse_port(char* port) {
     arg.port = atoi(port);
     PLOGD("Get port number %d", arg.port);
     if (arg.port < 1 || arg.port > 65535)
@@ -51,8 +51,8 @@ static int prase_port(char* port) {
     return 0;
 }
 
-int proxy_prase_arg(int argc, char** argv) {
-    PLOGD("Start to prase arguments");
+int proxy_parse_arg(int argc, char** argv) {
+    PLOGD("Start to parse arguments");
     int x = 1;
     while (x < argc) {
         if (strcmp(argv[x], "-v") == 0) {
@@ -60,26 +60,26 @@ int proxy_prase_arg(int argc, char** argv) {
             ++x; continue;
         }
         if (strcmp(argv[x], "-a") == 0) {
-            if (prase_addr(argv[x+1]))
-                return usage("Cannot prase address", argv[0]);
+            if (parse_addr(argv[x+1]))
+                return usage("Cannot parse address", argv[0]);
             x += 2; continue;
         }
         if (strcmp(argv[x], "-l") == 0) {
-            if (prase_log_file(argv[x+1]))
+            if (parse_log_file(argv[x+1]))
                 return usage("Cannot open log file", argv[0]);
             x += 2; continue;
         }
         if (strcmp(argv[x], "-h") == 0) {
             usage(NULL, argv[0]);
-            return 0;
+            return -1;
         }
-        if (prase_port(argv[x]))
+        if (parse_port(argv[x]))
             return usage("Please specific port number between 1 and 65535", argv[0]);
         else
             break;
     }
     if (arg.port == -1)
         return usage("Please specific port number between 1 and 65535", argv[0]);
-    PLOGD("Successfully prase arguments");
+    PLOGD("Successfully parse arguments");
     return 0;
 }

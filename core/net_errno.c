@@ -17,6 +17,8 @@ char* err_msg[] = {
     "Protocol error"
 };
 
-char* net_err_getmsg(int net_errno) {
-    return err_msg[err_errno];
+int net_errno = 0;
+
+char* net_err_getmsg() {
+    return err_msg[net_errno];
 }

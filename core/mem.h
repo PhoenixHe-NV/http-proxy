@@ -13,8 +13,8 @@ void* mem_alloc_auto(ssize_t size);
 
 void mem_incref(void* ptr);
 
-int mem_decref(void* ptr, void (*finalize)(void*));
+int mem_decref(void* ptr, void (*done)(void*));
 
-void mem_finalize();
+void mem_done();
 
 #endif
