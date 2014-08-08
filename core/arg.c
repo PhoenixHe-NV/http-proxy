@@ -6,7 +6,7 @@
 #include "arg.h"
 
 struct proxy_arg_t arg = {
-    -1, "127.0.0.1", PROXY_LOG_LEVEL_DEBUG, NULL
+    -1, "localhost", PROXY_LOG_LEVEL_DEBUG, NULL
 };
 
 static int usage(char* reason, char* exe) {
@@ -16,7 +16,7 @@ static int usage(char* reason, char* exe) {
     puts("A simple http(s) proxy listen on PORT\n");
     puts("-v                Logging becomes VERY verbose");
     puts("-a <addrress>     Bind to specific address (can be ipv6 address)");
-    puts("                      Default: 127.0.0.1");
+    puts("                      Default: localhost");
     puts("-l <file>         Logging to log file");
     puts("                      Default: stderr");
     puts("-h                Print this help and exit");

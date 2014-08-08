@@ -45,7 +45,6 @@ int net_pull_work() {
         PLOGUE("epoll_wait");
         return -1;
     }
-    PLOGD("epoll_wait() returned");
 
     int i;
     for (i = 0; i < nfds; ++i) {
@@ -76,6 +75,7 @@ int net_pull_add(int fd, int event) {
     PLOGD("Adding fd: %d event: %d", fd, event);
 
     struct epoll_event ev;
+    memset(&ev, 0, sizeof(struct epoll_event));
     ev.data.fd = fd;
     ev.events = event | EPOLLET;
     if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev) < 0) {
@@ -108,7 +108,10 @@ int net_pull_del(int fd) {
     PLOGD("Deleting fd: %d", fd);
     struct net_handler_t* h;
     HASH_FIND_INT(handlers, &fd, h);
-    assert(h && "Delete an non-existing fd to event listener");
+    if (h == NULL) {
+        PLOGD("Delete an non-existing fd to event listener");
+        return -1;
+    }
 
     if (epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL) < 0) {
         PLOGUE("epoll_ctl: del fd");
@@ -122,13 +125,28 @@ int net_pull_del(int fd) {
 }
 
 int net_pull_done() {
-    struct net_handler_t *h, *tmp;
-    PLOGD("Notice all the handler to close connections");
+    struct net_handler_t *h, *tmp, **v, **p, **i;
+    PLOGD("Closing all the connections");
+    // Copy all the handler pointer out
+    int cnt = HASH_COUNT(handlers);
+    if (cnt == 0)
+        return 0;
+    v = (struct net_handler_t**) mem_alloc(cnt*sizeof(struct net_handler_t**));
+    p = v;
+    HASH_ITER(hh, handlers, h, tmp)
+        *p++ = h;
+    HASH_CLEAR(hh, handlers);
+
     struct epoll_event close_ev;
     close_ev.events = EPOLLERR;
-    HASH_ITER(hh, handlers, h, tmp) {
-        if (h->handler)
-            h->handler(close_ev, h->data);
+    for (i = v; i != p; ++i) {
+        if ((*i)->handler) {
+            PLOGD("Notice fd: %d", (*i)->fd);
+            (*i)->handler(close_ev, (*i)->data);
+        }
+        mem_free(*i);
     }
+    
+    mem_free(v);
     return 0;
 }

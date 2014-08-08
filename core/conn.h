@@ -19,6 +19,8 @@ struct conn_endpoint {
     } addr;
 };
 
+struct addr_pool_st;
+
 // NOTICE: autoptr
 struct conn {
     int fd; 
@@ -27,6 +29,7 @@ struct conn {
     int buf_cap, buf_s, buf_e;
     enum conn_stat stat;
     struct conn_endpoint ep;
+    struct addr_pool_st* apool;
 };
 
 
@@ -37,6 +40,8 @@ struct conn {
 struct conn_notice {
     int fd, flag;
 };
+
+char* ep_tostring(struct conn_endpoint* ep);
 
 void conn_done(struct conn* conn);
 
@@ -51,8 +56,8 @@ void conn_set_accept_handler(conn_handler_t handler);
 // Not actually free it, just return it back to connection pool
 void conn_free(struct conn* conn);
 
-// ASYNC funcs
-struct conn* conn_get_by_addr(struct endpoint* ep);
+// ASYNC func
+struct conn* conn_get_by_endpoint(struct conn_endpoint* ep);
 
 void conn_close(struct conn* conn);
 

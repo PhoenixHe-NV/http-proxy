@@ -17,6 +17,7 @@ static int proxy_done(int exit_val) {
     PLOGD("Exiting");
     net_pull_done();
     conn_module_done();
+    net_data_module_done();
     proxy_log_done();
     exit(exit_val);
     return 0;
@@ -69,11 +70,9 @@ int proxy_main(int argc, char** argv) {
 
     while (1) {
         ret = proxy_event_work();
-        PLOGD("proxy_event_work() returns %d", ret);
         if (ret) 
             break;
         ret = net_pull_work();
-        PLOGD("net_pull_work() returns %d", ret);
         if (ret)
             break;
 //        sleep(1);

@@ -21,7 +21,9 @@ static int conn_try_io(int if_recv, int fd, void* buf, int len) {
             struct conn_notice notice;
             notice.fd = fd;
             notice.flag = if_recv ? EPOLLIN : EPOLLOUT;
+            PLOGD("WILL BLOCK");
             ret = async_yield(CONN_IO_WILL_BLOCK, &notice);
+            PLOGD("BACK");
             if (ret == 0)
                 // Try again
                 continue;

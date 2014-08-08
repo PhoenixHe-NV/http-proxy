@@ -13,6 +13,8 @@
 
 #define SERVER_MAX_FD               32
 
-#define ASYNC_STACK_SIZE            64*1024     // 64k
+#define ASYNC_STACK_SIZE            128*1024     // 64k
+
+#define STRBUF_INIT_LEN             128
 
 #endif

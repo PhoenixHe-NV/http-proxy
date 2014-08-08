@@ -13,8 +13,10 @@ int net_fetch_headers(struct conn* conn, struct net_data* data);
 
 void net_handle_register(char* method, net_handler_t handler);
 
+int net_fetch_headers(struct conn* conn, struct net_data* data);
+
 void net_bad_request(struct conn* conn);
 
-int net_fetch_headers(struct conn* conn, struct net_data* data);
+void net_bad_gateway(struct conn* conn);
 
 #endif

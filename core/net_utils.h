@@ -3,15 +3,16 @@
 
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <netdb.h>
 
-int proxy_net_connect(struct sockaddr* addr, int port);
+int net_connect(struct sockaddr* addr, int port);
 
-int proxy_net_setnonblocking(int fd);
+int net_setnonblocking(int fd);
 
 int proxy_epoll_err(struct epoll_event ev);
 
-const char* proxy_net_tostring(int family, char* addr);
+const char* net_tostring(int family, void* addr);
 
-int proxy_net_dns_lookup(char* host, char* service, struct addrinfo** result);
+int net_dns_lookup(char* host, char* service, struct addrinfo** result);
 
 #endif

@@ -39,6 +39,8 @@ struct net_rsp {
 
 void net_data_module_init();
 
+void net_data_module_done();
+
 void net_data_init(struct net_data* data);
 
 void net_data_done(struct net_data* data);

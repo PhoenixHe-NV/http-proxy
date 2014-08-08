@@ -106,6 +106,14 @@ void net_data_module_init() {
     PLOGD("%d", ret);
 }
 
+void net_data_module_done() {
+    regfree(&header_re);
+    regfree(&req_re);
+    regfree(&uri_re);
+    regfree(&rsp_re);
+    regfree(&host_re);
+}
+
 int net_parse_header(struct net_data* data, int offset) {
     regmatch_t res[4];
     struct strbuf* buf = &data->buf;

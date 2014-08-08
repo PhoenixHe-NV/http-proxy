@@ -68,9 +68,8 @@ static int net_conn_handler(struct conn* conn) {
 
     int ret = 0;
     struct net_data data;
+    net_data_init(&data);
     while (1) {
-        net_data_init(&data);
-
         ret = conn_gets(conn, HTTP_HEADER_MAXLEN, &data.buf);
         if (ret <= 0) {
             PLOGD("Cannot parse startline");
@@ -102,9 +101,13 @@ static int net_conn_handler(struct conn* conn) {
             break;
         }
 
-        handler(conn, &req);
+        if (handler(conn, &req))
+            break;
+
         net_data_done(&data);
+        net_data_init(&data);
     }
+    net_data_done(&data);
 
     mem_decref(conn, conn_done);
     return ret;
@@ -120,6 +123,14 @@ void net_bad_request(struct conn* conn) {
         return;
     // TODO: Return a standard html page
     char msg[] = "400 Bad Request\r\nServer: http-proxy\r\n\r\n";
+    conn_write(conn, msg, strlen(msg));
+    conn_close(conn);
+}
+
+void net_bad_gateway(struct conn* conn) {
+    if (conn->stat == CONN_CLOSED)
+        return;
+    char msg[] = "502 Bad Gateway\r\nServer: http-proxy\r\n\r\n";
     conn_write(conn, msg, strlen(msg));
     conn_close(conn);
 }
