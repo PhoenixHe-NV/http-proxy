@@ -69,7 +69,7 @@ int proxy_main(int argc, char** argv) {
     net_http_module_init();
 
     while (1) {
-        ret = proxy_event_work();
+        ret = event_work();
         if (ret) 
             break;
         ret = net_pull_work();

@@ -11,7 +11,7 @@ int net_poll_work();
 
 int net_pull_add(int fd, int event);
 
-int net_pull_set_handler(int fd, net_pull_handler_t handler, void* data);
+int net_pull_set_handler(int fd, int flag, net_pull_handler_t handler, void* data);
 
 int net_pull_del(int fd);
 

@@ -31,7 +31,9 @@ int net_setnonblocking(int fd) {
 }
 
 int proxy_epoll_err(struct epoll_event ev) {
-    return ev.events & EPOLLERR || ev.events & EPOLLHUP;
+    return ev.events & EPOLLERR || 
+           ev.events & EPOLLHUP || 
+           ev.events & EPOLLRDHUP;
 }
 
 const char* net_tostring(int family, void* addr) {

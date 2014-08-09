@@ -12,7 +12,8 @@ enum async_stat {
 
 enum async_yield_type {
     YIELD_NONE,
-    CONN_IO_WILL_BLOCK
+    CONN_IO_WILL_BLOCK,
+    CONN_WAIT_FOR_EVENT
 };
 
 struct async_cxt {
@@ -24,9 +25,9 @@ struct async_cxt {
 
 void async_init(struct async_cxt* cxt);
 
-void async_done(struct async_cxt* cxt);
+void async_done(void* cxt);
 
-void async_call(struct async_cxt* cxt, int (*func)(void*), void* data);
+void async_call(struct async_cxt* cxt, int (*func)(void*), int argc, ...);
 
 int async_yield(int data_type, void* data);
 

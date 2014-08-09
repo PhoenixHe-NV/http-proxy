@@ -61,6 +61,7 @@ int net_fetch_headers(struct conn* conn, struct net_data* data) {
     return 0;
 }
 
+/*
 static int net_conn_handler(struct conn* conn) {
     PLOGD("Entering NET HANDLER!!");
     PLOGD("fd:%d", conn->fd);
@@ -112,6 +113,13 @@ static int net_conn_handler(struct conn* conn) {
     mem_decref(conn, conn_done);
     return ret;
 }
+*/
+
+static int net_req_handler(struct conn* conn) {
+}
+
+static int net_rsp_handler(struct conn* conn, void* data) {
+}
 
 void net_handle_module_init() {
     memset(handlers, 0, sizeof(handlers));
@@ -132,5 +140,4 @@ void net_bad_gateway(struct conn* conn) {
         return;
     char msg[] = "502 Bad Gateway\r\nServer: http-proxy\r\n\r\n";
     conn_write(conn, msg, strlen(msg));
-    conn_close(conn);
 }

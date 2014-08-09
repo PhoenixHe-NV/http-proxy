@@ -18,9 +18,9 @@ static int conn_try_io(int if_recv, int fd, void* buf, int len) {
         }
         if (ret == -1 && errno == EAGAIN) {
             // Will block
-            struct conn_notice notice;
-            notice.fd = fd;
-            notice.flag = if_recv ? EPOLLIN : EPOLLOUT;
+            conn_notice notice;
+            notice.io_block.fd = fd;
+            notice.io_block.flag = if_recv ? EPOLLIN : EPOLLOUT;
             PLOGD("WILL BLOCK");
             ret = async_yield(CONN_IO_WILL_BLOCK, &notice);
             PLOGD("BACK");

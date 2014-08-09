@@ -20,16 +20,20 @@ void async_init(struct async_cxt* cxt) {
     cxt->uc.uc_link = &main_cxt;
 }
 
-void async_done(struct async_cxt* cxt) {
+void async_done(void* p) {
+    struct async_cxt* cxt = (struct async_cxt*) p;
     PLOGD("free async_cxt");
     mem_free(cxt->uc.uc_stack.ss_sp);
 }
 
-void async_call(struct async_cxt* cxt, int (*func)(void*), void* data) {
+void async_call(struct async_cxt* cxt, int (*func)(void*), int argc, ...) {
     if (cxt->stat != ASYNC_INIT)
         return;
 
-    makecontext(&cxt->uc, func, 1, data);
+    va_list args;
+    va_start(args, argc);
+    makecontext(&cxt->uc, func, argc, args);
+    va_end(args);
 
     cxt->stat = ASYNC_PAUSE;
     async_resume(cxt, 0);

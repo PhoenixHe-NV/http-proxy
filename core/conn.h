@@ -6,6 +6,7 @@
 
 #include "utlib.h"
 #include "async.h"
+#include "event.h"
 
 enum conn_stat {
     CONN_USED, CONN_FREE, CONN_CLOSED
@@ -19,7 +20,7 @@ struct conn_endpoint {
     } addr;
 };
 
-struct addr_pool_st;
+struct conn_pool_ent;
 
 // NOTICE: autoptr
 struct conn {
@@ -29,7 +30,7 @@ struct conn {
     int buf_cap, buf_s, buf_e;
     enum conn_stat stat;
     struct conn_endpoint ep;
-    struct addr_pool_st* apool;
+    struct conn_pool_ent* apool;
 };
 
 
@@ -37,21 +38,30 @@ struct conn {
 #define CONN_NOTICE_WRITE EPOLLOUT
 
 // for async_yield
-struct conn_notice {
-    int fd, flag;
-};
+typedef union conn_notice_u {
+    struct {
+        int fd, flag;
+    } io_block;
+    struct {
+        event_id eid;
+        void* data;
+    } wait_event;
+} conn_notice;
+
+typedef int (*conn_req_handler)(struct conn* conn, void** data_ptr);
+typedef int (*conn_rsp_handler)(struct conn* conn, void* data);
 
 char* ep_tostring(struct conn_endpoint* ep);
 
-void conn_done(struct conn* conn);
-
-typedef int (*conn_handler_t)(struct conn* conn);
+void conn_done(void* conn);
 
 int conn_module_init();
 
 void conn_module_done();
 
-void conn_set_accept_handler(conn_handler_t handler);
+void conn_set_req_handler(conn_req_handler handler);
+
+void conn_set_rsp_handler(conn_rsp_handler handler);
 
 // Not actually free it, just return it back to connection pool
 void conn_free(struct conn* conn);

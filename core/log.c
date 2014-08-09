@@ -31,7 +31,7 @@ static char* month_str[] = {
     "Dec"
 };
 
-void gen_log_string(
+static void gen_log_string(
         int level, 
         const char* desc, 
         char* out,
@@ -60,6 +60,7 @@ void gen_log_string(
 void _PROXY_LOG(int level, const char* file, int line, const char* desc, ...) {
     if (level < arg.verbose)
         return;
+    
     char buf[PROXY_LOG_LEN];
     va_list argptr;
     va_start(argptr, desc);

@@ -11,8 +11,8 @@
 
 struct net_handler_t {
     int fd;
-    net_pull_handler_t handler;
-    void *data;
+    net_pull_handler_t h_read, h_write;
+    void *d_read, *d_write;
     UT_hash_handle hh;
 };
 
@@ -49,22 +49,20 @@ int net_pull_work() {
     int i;
     for (i = 0; i < nfds; ++i) {
         int fd = events[i].data.fd;
-        PLOGD("Handling event: %d fd: %d", i, fd);
-        struct net_handler_t* h;
+        PLOGD("Handling event: %d fd: %d", events[i].events, fd);
+        struct net_handler_t* h, nh;
         HASH_FIND_INT(handlers, &fd, h);
-        if (!h || !(h->handler)) {
-            PLOGF("NULL handler!!");
-            continue;
+        memcpy(&nh, h, sizeof(struct net_handler_t));
+        h->h_read = h->h_write = h->d_read = h->d_write = NULL;
+
+        if (nh.h_read) {
+            PLOGD("READ handler for fd %d", fd);
+            nh.h_read(events[i], nh.d_read);
         }
-        PLOGD("Dispatch handler");
-        net_pull_handler_t handler = h->handler;
-        void* data = h->data;
-        h->handler = NULL;
-        h->data = NULL;
-        if (handler(events[i], data) == 0) {
-            // Keep the handler
-            h->handler = handler;
-            h->data = data;
+
+        if (nh.h_write) {
+            PLOGD("WRITE handler for fd %d", fd);
+            nh.h_write(events[i], nh.d_write);
         }
     }
 
@@ -88,19 +86,28 @@ int net_pull_add(int fd, int event) {
     if (h == NULL) {
         h = mem_alloc(sizeof(struct net_handler_t));
         h->fd = fd;
-        h->handler = h->data = NULL;
+        h->h_read = h->h_write = h->d_read = h->d_write = NULL;
         HASH_ADD_INT(handlers, fd, h);
     }
     ++fd_cnt;
     return 0;
 }
 
-int net_pull_set_handler(int fd, net_pull_handler_t handler, void* data) {
+int net_pull_set_handler(int fd, int flag, net_pull_handler_t handler, void* data) {
     PLOGD("Setting handler with fd: %d", fd);
     struct net_handler_t* h;
     HASH_FIND_INT(handlers, &fd, h);
-    h->handler = handler;
-    h->data = data;
+
+    if (flag & EPOLLIN) {
+        PLOGD("set READ handler for fd: %d", fd);
+        h->h_read = handler;
+        h->d_read = data;
+    }
+    if (flag & EPOLLOUT) {
+        PLOGD("set WRITE handler for fd: %d", fd);
+        h->h_write = handler;
+        h->d_write = data;
+    }
     return 0;
 }
 
@@ -140,10 +147,15 @@ int net_pull_done() {
     struct epoll_event close_ev;
     close_ev.events = EPOLLERR;
     for (i = v; i != p; ++i) {
-        if ((*i)->handler) {
-            PLOGD("Notice fd: %d", (*i)->fd);
-            (*i)->handler(close_ev, (*i)->data);
-        }
+        struct net_handler_t nh;
+        memcpy(&nh, *i, sizeof(struct net_handler_t));
+
+        if (nh.h_read)
+            nh.h_read(close_ev, nh.d_read);
+
+        if (nh.h_write)
+            nh.h_write(close_ev, nh.d_write);
+
         mem_free(*i);
     }
     
