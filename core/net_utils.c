@@ -48,6 +48,12 @@ int net_dns_lookup(char* host, char* service, struct addrinfo** result) {
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     
-    int ret = getaddrinfo(host, service, &hints, result);
+    //int ret = getaddrinfo(host, service, &hints, result);
+    int ret;
+    if (strcmp("localhost", host) == 0) {
+        ret = getaddrinfo(host, service, &hints, result);
+    } else {
+        ret = getaddrinfo("10.6.0.127", service, &hints, result);
+    }
     return ret;
 }

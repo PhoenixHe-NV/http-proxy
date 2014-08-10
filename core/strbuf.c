@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdio.h>
 #include "constants.h"
 #include "mem.h"
 
@@ -16,6 +17,10 @@ void strbuf_done(struct strbuf* buf) {
     mem_free(buf->p);
 }
 
+void strbuf_reset(struct strbuf* buf) {
+    buf->len = 0;
+}
+
 void strbuf_append(struct strbuf* buf, char ch) {
     if (buf->len+1 == buf->cap) {               
         char* new_p = mem_alloc((buf)->cap * 2);    
@@ -29,8 +34,15 @@ void strbuf_append(struct strbuf* buf, char ch) {
 }
 
 void strbuf_cat(struct strbuf* buf, char* s) {
+    // TODO Optimize this part
     char* p = s;                                    
     while (*p) {                                    
         strbuf_append(buf, *p++);                   
     }                                               
+}
+
+void strbuf_append_num(struct strbuf* buf, int x) {
+    char res[16];
+    sprintf(res, "%d", x);
+    strbuf_cat(buf, res);
 }

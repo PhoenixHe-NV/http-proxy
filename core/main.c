@@ -7,17 +7,22 @@
 #include "arg.h"
 #include "event.h"
 #include "conn.h"
+#include "event.h"
 #include "net_pull.c"
 #include "net_handle.h"
 #include "net_http.h"
 
 #include "main.h"
 
+enum main_stat_e main_stat;
+
 static int proxy_done(int exit_val) {
     PLOGD("Exiting");
+    main_stat = EXITING;
     net_pull_done();
-    conn_module_done();
     net_data_module_done();
+    conn_module_done();
+    event_module_done();
     proxy_log_done();
     exit(exit_val);
     return 0;
@@ -39,6 +44,8 @@ static void install_signal_handlers() {
 }
 
 int proxy_main(int argc, char** argv) {
+    main_stat = RUNING;
+    
     proxy_log_init();
     PLOGD("Starting");
 
@@ -51,6 +58,7 @@ int proxy_main(int argc, char** argv) {
     }
 
     net_data_module_init();
+    event_module_init();
 
     ret = net_pull_init();
     if (ret) {

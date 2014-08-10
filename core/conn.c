@@ -12,6 +12,7 @@
 #include "net_pull.h"
 #include "constants.h"
 #include "event.h"
+#include "main.h"
 
 #include "conn.h"
 
@@ -52,7 +53,7 @@ conn_init(struct conn* conn, int fd, struct conn_endpoint* ep) {
 void 
 conn_done(void* p) {
     struct conn* conn = (struct conn*) p;
-    PLOGD("CONN FREE fd: %d", conn->fd);
+    PLOGD("CONN FREE %s fd: %d", ep_tostring(&conn->ep), conn->fd);
     if (conn->stat != CONN_CLOSED)
         conn_close(conn);
     mem_free(conn->buf);
@@ -74,7 +75,7 @@ conn_addrpool_add(struct conn* conn) {
         elem->next = NULL;
         h->head.prev = NULL;
         h->head.next = elem;
-
+        
         HASH_ADD(hh, free_pool, ep, sizeof(struct conn_endpoint), h);
         return;
     }
@@ -105,7 +106,7 @@ conn_addrpool_try_get_and_del(struct conn_endpoint* ep) {
     HASH_FIND(hh, free_pool, ep, sizeof(struct conn_endpoint), h);
     if (h == NULL || h->head.next == NULL)
         return NULL;
-
+    
     // Delete the first item 
     struct conn_pool_ent* elem = h->head.next;
     h->head.next = elem->next;
@@ -121,35 +122,50 @@ static int
 conn_epoll_handler(struct epoll_event ev, void* data);
 
 static int
+conn_event_handler(event_id eid, void* data0, void* data1);
+
+static int
 conn_async_final(struct async_cxt* cxt) {
-    if (cxt->stat == ASYNC_PAUSE) {
-        conn_notice* notice = (conn_notice*) cxt->yield_data;
-        switch (cxt->yield_type) {
-            case CONN_IO_WILL_BLOCK:
-                net_pull_set_handler(notice->io_block.fd,
-                                     notice->io_block.flag, 
-                                     conn_epoll_handler, cxt);
-                break;
-                
-            case CONN_WAIT_FOR_EVENT:
-                event_post(notice->wait_event.eid, notice->wait_event.data);
-                break;
-                
-            case YIELD_NONE:
-            default:
-                PLOGD("UNKNOWN YIELD TYPE");
-        }
-        return 0;
-    } else {
+    if (cxt->stat != ASYNC_PAUSE) {
         mem_decref(cxt, async_done);
         return -1;
     }
+    
+    conn_notice* notice = (conn_notice*) cxt->yield_data;
+    switch (cxt->yield_type) {
+        case CONN_IO_WILL_BLOCK:
+            net_pull_set_handler(notice->io_block.fd,
+                                 notice->io_block.flag, 
+                                 conn_epoll_handler, cxt);
+            break;
+            
+        case CONN_WAIT_FOR_EVENT:
+            event_set_handler(notice->wait_event.eid,
+                              conn_event_handler, cxt);
+            break;
+            
+        case YIELD_NONE:
+        default:
+            PLOGD("UNKNOWN YIELD TYPE");
+    }
+    return 0;
 }  
 
 static int
 conn_epoll_handler(struct epoll_event ev, void* data) {
     struct async_cxt* cxt = (struct async_cxt*) data;
     int yield_ret = proxy_epoll_err(ev) ? -1 : 0;
+    
+    async_resume(cxt, yield_ret);
+    conn_async_final(cxt);
+    
+    return 0;
+}
+
+static int
+conn_event_handler(event_id eid, void* data0, void* data1) {
+    struct async_cxt* cxt = (struct async_cxt*) data0;
+    int yield_ret = (data1 == NULL);
     
     async_resume(cxt, yield_ret);
     conn_async_final(cxt);
@@ -166,77 +182,92 @@ conn_accept_handler(struct epoll_event ev, void* data) {
         net_pull_del(sfd);
         return -1;
     }
-
+    
     // Keep this accept handler
     net_pull_set_handler(sfd, EPOLLIN, conn_accept_handler, data);
-
-    // Accept client connection
-    struct sockaddr_storage addr;
-    socklen_t addrlen = sizeof(addr);
-    memset(&addr, 0, addrlen);
-    int fd = accept(sfd, (struct sockaddr*)&addr, &addrlen);
-    if (fd < 0) {
-        PLOGUE("accept");
-        return -1;
-    }
-    if (net_setnonblocking(fd)) {
-        close(fd);
-        return -1;
-    }
-    net_pull_add(fd, EPOLLIN | EPOLLOUT);
-
-    // Construct endpoint
-    struct conn_endpoint ep;
-    memset(&ep, 0, sizeof(ep));
-    if (addr.ss_family == AF_INET) {
-        struct sockaddr_in* addr4 = (struct sockaddr_in*)&addr;
-        ep.family = AF_INET;
-        ep.port = addr4->sin_port;
-        memcpy(&ep.addr.v4, &(addr4->sin_addr), sizeof(struct in_addr));
-    } else if (addr.ss_family == AF_INET6) {
-        struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&addr;
-        ep.family = AF_INET6;
-        ep.port = addr6->sin6_port;
-        memcpy(&ep.addr.v6, &(addr6->sin6_addr), sizeof(struct in6_addr));
-    } else {
-        PLOGE("Unknown client connection type");
-        close(fd);
-        return -1;
-    }
-
-    // Construct connection
-    struct conn* conn = mem_alloc_auto(sizeof(struct conn));
-    conn_init(conn, fd, &ep);
-    conn->stat = CONN_USED;
     
-    // Call req handler first
-    struct async_cxt* cxt_req = mem_alloc_auto(sizeof(struct async_cxt));
-    async_init(cxt_req);
-    void* data_p = NULL;
-    async_call(cxt_req, req_handler, conn, &data_p);
-    int ret = conn_async_final(cxt_req);
-    
-    if (ret) {
-        // req handler failed
+    while (1) {
+        // Accept client connection
+        struct sockaddr_storage addr;
+        socklen_t addrlen = sizeof(addr);
+        memset(&addr, 0, addrlen);
+        int fd = accept(sfd, (struct sockaddr*)&addr, &addrlen);
+        if (fd < 0) {
+            if (errno == EAGAIN)
+                return 0;
+            PLOGUE("accept");
+            return -1;
+        }
+        if (net_setnonblocking(fd)) {
+            close(fd);
+            return -1;
+        }
+        net_pull_add(fd, EPOLLIN | EPOLLOUT);
+        
+        // Construct endpoint
+        struct conn_endpoint ep;
+        memset(&ep, 0, sizeof(ep));
+        if (addr.ss_family == AF_INET) {
+            struct sockaddr_in* addr4 = (struct sockaddr_in*)&addr;
+            ep.family = AF_INET;
+            ep.port = addr4->sin_port;
+            memcpy(&ep.addr.v4, &(addr4->sin_addr), sizeof(struct in_addr));
+        } else if (addr.ss_family == AF_INET6) {
+            struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&addr;
+            ep.family = AF_INET6;
+            ep.port = addr6->sin6_port;
+            memcpy(&ep.addr.v6, &(addr6->sin6_addr), sizeof(struct in6_addr));
+        } else {
+            PLOGE("Unknown client connection type");
+            close(fd);
+            return -1;
+        }
+        
+        // Construct connection
+        struct conn* conn = mem_alloc_auto(sizeof(struct conn));
+        conn_init(conn, fd, &ep);
+        conn->stat = CONN_USED;
+        
+        // Call req handler first
+        struct async_cxt* cxt_req = mem_alloc_auto(sizeof(struct async_cxt));
+        async_init(cxt_req);
+        void* data_p = NULL;
+        
+        // async_call(cxt_req, req_handler, 2, conn, &data_p);
+        cxt_req->stat = ASYNC_PAUSE;
+        makecontext(&cxt_req->uc, req_handler, 2, conn, &data_p);
+        async_resume(cxt_req, 0);
+        
+        int ret = conn_async_final(cxt_req);
+        
+        if (ret) {
+            // req handler failed
+            mem_decref(conn, conn_done);
+            return 0;
+        }
+        
+        // Call rsp handler
+        struct async_cxt* cxt_rsp = mem_alloc_auto(sizeof(struct async_cxt));
+        async_init(cxt_rsp);
+        
+        cxt_rsp->stat = ASYNC_PAUSE;
+        makecontext(&cxt_rsp->uc, rsp_handler, 1, data_p);
+        async_resume(cxt_rsp, 0);
+        
+        //async_call(cxt_rsp, rsp_handler, 1, data_p);
+        
         mem_decref(conn, conn_done);
-        return 0;
+        ret = conn_async_final(cxt_rsp);
     }
     
-    // Call rsp handler
-    struct async_cxt* cxt_rsp = mem_alloc_auto(sizeof(struct async_cxt));
-    async_init(cxt_rsp);
-    async_call(cxt_rsp, rsp_handler, conn, data_p);
-    mem_decref(conn, conn_done);
-    ret = conn_async_final(cxt_rsp);
-
-    return ret;
+    return 0;
 }
 
 int 
 conn_module_init() {
     memset(sfds, -1, sizeof(sfds));
     sfd_cnt = 0;
-
+    
     PLOGD("Resolving server address %s", arg.addr); 
     struct addrinfo *result, *rp;
     int ret = net_dns_lookup(arg.addr, NULL, &result);
@@ -244,68 +275,74 @@ conn_module_init() {
         PLOGE("getaddrinfo: %s", gai_strerror(ret));
         result = NULL;
     }
-
+    
     for (rp = result; rp; rp = rp->ai_next) {
         int fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (fd < 0) {
             PLOGUE("socket");
             continue;
         }
-
+        
         int flag = 0;
         if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag , sizeof(int)) < 0) {
             PLOGUE("setsockopt: SO_REUSEADDR");
             goto bind_failed;
         }
-
+        
         int ret;
         // Set the port
         if (rp->ai_family == AF_INET) {
             struct sockaddr_in* addr = (struct sockaddr_in*)(rp->ai_addr);
             addr->sin_port = htons(arg.port);
             PLOGI("Trying to bind to %s :%d", 
-                    net_tostring(addr->sin_family, &(addr->sin_addr)), arg.port);
+                  net_tostring(addr->sin_family, &(addr->sin_addr)), arg.port);
             ret = bind(fd, rp->ai_addr, sizeof(struct sockaddr_in));
         } else if (rp->ai_family == AF_INET6) {
             struct sockaddr_in6* addr = (struct sockaddr_in6*)(rp->ai_addr);
             addr->sin6_port = htons(arg.port);
             PLOGI("Trying to bind to %s :%d", 
-                    net_tostring(addr->sin6_family, &(addr->sin6_addr)), arg.port);
+                  net_tostring(addr->sin6_family, &(addr->sin6_addr)), 
+                  arg.port);
             ret = bind(fd, rp->ai_addr, sizeof(struct sockaddr_in6));
         } else {
             PLOGF("Unknown network type");
             goto bind_failed;
         }
-
+        
         if (ret < 0) {
             PLOGUE("bind");
             goto bind_failed;
         }
-
+        
+        if (net_setnonblocking(fd)) {
+            close(fd);
+            return -1;
+        }
+        
         if (listen(fd, 16) < 0) {
             PLOGUE("listen");
             goto bind_failed;
         }
-
+        
         net_pull_add(fd, EPOLLIN);
         net_pull_set_handler(fd, EPOLLIN, conn_accept_handler, sfds + sfd_cnt);
-
+        
         sfds[sfd_cnt++] = fd;
         PLOGI("Bind success");
         continue;
-
-bind_failed:
+        
+        bind_failed:
         close(fd);
     }
-
+    
     if (result)
         freeaddrinfo(result);
-
+    
     if (sfd_cnt == 0) {
         PLOGF("Cannot bind to any address");
         return -1;
     }
-
+    
     return 0;
 }
 
@@ -314,7 +351,7 @@ conn_module_done() {
     PLOGD("Closing server socket fd");
     for (int i = 0; sfds[i] >= 0; ++i)
         close(sfds[i]);
-
+    
     struct conn_pool *i, *tmp;
     HASH_ITER(hh, free_pool, i, tmp) {
         struct conn_pool_ent *p = i->head.next, *q;
@@ -324,9 +361,10 @@ conn_module_done() {
             mem_free(p);
             p = q;
         }
+        HASH_DEL(free_pool, i);
         mem_free(i);
     }
-    HASH_CLEAR(hh, free_pool);
+    free_pool = NULL;
 }
 
 void conn_set_req_handler(conn_req_handler handler) {
@@ -366,7 +404,7 @@ conn_get_by_endpoint(struct conn_endpoint* ep) {
     }
     if (net_setnonblocking(fd) < 0)
         goto conn_error;
-
+    
     // Connect
     int ret;
     if (ep->family == AF_INET) {
@@ -384,7 +422,7 @@ conn_get_by_endpoint(struct conn_endpoint* ep) {
         memcpy(&addr.sin6_addr, &ep->addr.v6, sizeof(struct in6_addr));
         ret = connect(fd, &addr, sizeof(struct sockaddr_in6));
     }
-
+    
     if (ret < 0 && errno != EINPROGRESS)
         goto conn_error;
     
@@ -400,14 +438,14 @@ conn_get_by_endpoint(struct conn_endpoint* ep) {
             return NULL;
         }
     }
-
+    
     PLOGD("Connected");
-
+    
     conn = mem_alloc_auto(sizeof(struct conn));
     conn_init(conn, fd, ep);
     return conn;
-
-conn_error:
+    
+    conn_error:
     PLOGD("Connection failed. Closing fd");
     // TODO: getsockopt() to get error type
     close(fd);
@@ -419,12 +457,12 @@ conn_notice_free_connection_closed(struct epoll_event ev, void* data) {
     struct conn* conn = (struct conn*) data;
     if (proxy_epoll_err(ev)) {
         PLOGI("Idle connection to %s closed", 
-                ep_tostring(&conn->ep));
+              ep_tostring(&conn->ep));
     } else {
         PLOGE("Someting strange happend on an idle connection to %s . Closing it",
-                ep_tostring(&conn->ep));
+              ep_tostring(&conn->ep));
         net_pull_set_handler(conn->fd, EPOLLIN,
-                conn_notice_free_connection_closed, conn);
+                             conn_notice_free_connection_closed, conn);
         return 0;
     }
     conn_close(conn);
@@ -433,11 +471,13 @@ conn_notice_free_connection_closed(struct epoll_event ev, void* data) {
 }
 
 void conn_free(struct conn* conn) {
+    if (conn->stat == CONN_CLOSED || main_stat == EXITING)
+        return;
     PLOGD("Adding conn to free connection pool");
     conn->stat = CONN_FREE;
     conn_addrpool_add(conn);
     net_pull_set_handler(conn->fd, EPOLLIN,
-            conn_notice_free_connection_closed, conn);
+                         conn_notice_free_connection_closed, conn);
 }
 
 char* ep_tostring(struct conn_endpoint* ep) {

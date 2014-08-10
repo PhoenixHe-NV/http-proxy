@@ -26,10 +26,11 @@ void async_done(void* p) {
     mem_free(cxt->uc.uc_stack.ss_sp);
 }
 
-void async_call(struct async_cxt* cxt, int (*func)(void*), int argc, ...) {
+void async_call(struct async_cxt* cxt, void (*func)(void), int argc, ...) {
     if (cxt->stat != ASYNC_INIT)
         return;
 
+    // Well.. These code doesn't work. DONT USE ASYNC_CALL
     va_list args;
     va_start(args, argc);
     makecontext(&cxt->uc, func, argc, args);

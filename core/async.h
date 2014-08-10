@@ -27,7 +27,7 @@ void async_init(struct async_cxt* cxt);
 
 void async_done(void* cxt);
 
-void async_call(struct async_cxt* cxt, int (*func)(void*), int argc, ...);
+void async_call(struct async_cxt* cxt, void (*func)(void), int argc, ...);
 
 int async_yield(int data_type, void* data);
 

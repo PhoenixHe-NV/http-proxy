@@ -11,8 +11,12 @@ void strbuf_init(struct strbuf* buf);
 
 void strbuf_done(struct strbuf* buf);
 
+void strbuf_reset(struct strbuf* buf);
+
 void strbuf_append(struct strbuf* buf, char ch);
 
 void strbuf_cat(struct strbuf* buf, char* s);
+
+void strbuf_append_num(struct strbuf* buf, int x);
 
 #endif

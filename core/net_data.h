@@ -25,9 +25,6 @@ struct net_req {
     // offset of key in net_req.data->buf
     // Method always start at pos 0
     int host, protocol, path;
-    // NOTICE: host will not be end with '\0'
-    // because it may overrite the first 
-    // char in path
 };
 
 struct net_rsp {
@@ -60,5 +57,13 @@ int net_parse_header(struct net_data* data, int offset);
 int net_parse_req(struct net_req* req);
 
 int net_parse_rsp(struct net_rsp* rsp);
+
+int net_forward_req_header(struct net_req* req, struct conn* conn);
+
+int net_forward_rsp_header(struct net_rsp* rsp, struct conn* conn);
+
+void net_req_done(void* req);
+
+void net_rsp_done(void* req);
 
 #endif

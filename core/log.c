@@ -5,6 +5,7 @@
 
 #include "arg.h"
 #include "log.h"
+#include "constants.h"
 
 static char* week_str[] = {
     "Sun.",

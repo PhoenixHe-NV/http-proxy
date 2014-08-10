@@ -13,7 +13,8 @@ enum conn_stat {
 };
 
 struct conn_endpoint {
-    int family, port;
+    int family;
+    in_port_t port;
     union {
         struct in_addr v4;
         struct in6_addr v6;
@@ -44,12 +45,11 @@ typedef union conn_notice_u {
     } io_block;
     struct {
         event_id eid;
-        void* data;
     } wait_event;
 } conn_notice;
 
 typedef int (*conn_req_handler)(struct conn* conn, void** data_ptr);
-typedef int (*conn_rsp_handler)(struct conn* conn, void* data);
+typedef int (*conn_rsp_handler)(void* data);
 
 char* ep_tostring(struct conn_endpoint* ep);
 

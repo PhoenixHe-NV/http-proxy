@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "mem.h"
+#include "conn_io.h"
 
 #include "net_data.h"
 
@@ -15,9 +16,9 @@ void net_data_done(struct net_data* data) {
     strbuf_done(&data->buf);
     struct net_header_ent *h, *tmp;
     HASH_ITER(hh, data->table, h, tmp) {
+        HASH_DEL(data->table, h);
         mem_free(h);
     }
-    HASH_CLEAR(hh, data->table);
 }
 
 char* net_data_get_ent(struct net_data* data, char* key) {
@@ -72,7 +73,7 @@ void net_data_set_ent_offset(struct net_data* data, char* key,int offset) {
 
 // Connection: keep-alive
 // ^        $  ^        $
-static char* header_patt =  "(\\w+): *(.*)$";
+static char* header_patt =  "([a-zA-Z\\-]+): *(.*)$";
 static regex_t header_re;
 
 // GET http://www.google.com:80/?q=http-proxy HTTP/1.1
@@ -149,8 +150,15 @@ int net_parse_req(struct net_req* req) {
     req->ver_major = atoi(buf->p + res[3].rm_so);
     req->ver_minor = atoi(buf->p + res[4].rm_so);
 
-    // Distinguish between absolute uri and relative uri
     req->path = res[2].rm_so;
+    
+    if (strcmp(buf->p, "CONNECT") == 0) {
+        req->host = req->path;
+        goto parse_host;
+    }
+    
+    // Distinguish between absolute uri and relative uri
+    
     // http://www.google.com:80/?q=http-proxy
     // ^  $   ^            $^ $^            $
     int offset = res[2].rm_so;
@@ -178,6 +186,7 @@ int net_parse_req(struct net_req* req) {
     // Prase the host
     // www.google.com:80
     // ^            $^ $
+parse_host:
     offset = req->host;
     if (regexec(&host_re, buf->p + req->host, cnt, res, 0)) {
         PLOGE("Error host format");
@@ -206,5 +215,102 @@ int net_parse_req(struct net_req* req) {
 }
 
 int net_parse_rsp(struct net_rsp* rsp) {
-    return -1;
+    regmatch_t res[8];
+    int cnt = 8;
+    struct strbuf* buf = &rsp->data->buf;
+    
+    // Parse the startline
+    // HTTP/1.1 200 OK
+    //      ^ ^ ^ $ ^$
+    if (regexec(&rsp_re, buf->p, cnt, res, 0))
+        return -1;
+    
+    buf->p[res[1].rm_eo] = '\0';
+    buf->p[res[2].rm_eo] = '\0';
+    buf->p[res[3].rm_eo] = '\0';
+    rsp->ver_major = atoi(buf->p + res[1].rm_so);
+    rsp->ver_minor = atoi(buf->p + res[2].rm_so);
+    rsp->code = atoi(buf->p + res[3].rm_so);
+    rsp->http_msg = res[4].rm_so;
+    
+    return 0;
 }
+
+static void net_append_headers(struct net_data* data, struct strbuf* buf) {
+    struct net_header_ent *h, *tmp;
+    HASH_ITER(hh, data->table, h, tmp) {
+        strbuf_cat(buf, h->key);
+        strbuf_cat(buf, ": ");
+        strbuf_cat(buf, data->buf.p + h->val_offset);
+        strbuf_cat(buf, "\r\n");
+    }
+    strbuf_cat(buf, "\r\n");
+}
+
+int net_forward_req_header(struct net_req* req, struct conn* conn) {
+    struct strbuf buf, *origin = &req->data->buf;
+    strbuf_init(&buf);
+    
+    // Method
+    strbuf_cat(&buf, origin->p);
+    strbuf_append(&buf, ' ');
+    
+    // Path
+    strbuf_cat(&buf, origin->p + req->path);
+    strbuf_append(&buf, ' ');
+    
+    // HTTP version
+    strbuf_cat(&buf, "HTTP/");
+    strbuf_append_num(&buf, req->ver_major);
+    strbuf_append(&buf, '.');
+    strbuf_append_num(&buf, req->ver_minor);
+    strbuf_cat(&buf, "\r\n");
+    
+    net_append_headers(req->data, &buf);
+    
+    PLOGD("%s", buf.p);
+    conn_write(conn, buf.p, buf.len);
+    
+    strbuf_done(&buf);
+    return 0;
+}
+
+int net_forward_rsp_header(struct net_rsp* rsp, struct conn* conn) {
+    struct strbuf buf, *origin = &rsp->data->buf;
+    strbuf_init(&buf);
+    
+    // HTTP version
+    strbuf_cat(&buf, "HTTP/");
+    strbuf_append_num(&buf, rsp->ver_major);
+    strbuf_append(&buf, '.');
+    strbuf_append_num(&buf, rsp->ver_minor);
+    strbuf_append(&buf, ' ');
+    
+    // Status code
+    strbuf_append_num(&buf, rsp->code);
+    strbuf_append(&buf, ' ');
+    
+    // Message
+    strbuf_cat(&buf, origin->p + rsp->http_msg);
+    strbuf_cat(&buf, "\r\n");
+    
+    net_append_headers(rsp->data, &buf);
+    
+    PLOGD("%s", buf.p);
+    conn_write(conn, buf.p, buf.len);
+    
+    strbuf_done(&buf);
+    return 0;
+}
+
+void net_req_done(void* data) {
+    struct net_req* req = (struct net_req*) data;
+    net_data_done(req->data);
+    mem_free(req->data);
+}
+
+void net_rsp_done(void* data) {
+    struct net_rsp* rsp = (struct net_rsp*) data;
+    net_data_done(rsp->data);
+    mem_free(rsp->data);
+    }

@@ -109,6 +109,7 @@ int conn_gets(struct conn* conn, int len_limit, struct strbuf* buf) {
         return -1;
     if (ch != '\n')
         conn_ungetc(conn);
+    
     return ret;
 }
 
@@ -116,6 +117,7 @@ int conn_gets(struct conn* conn, int len_limit, struct strbuf* buf) {
 int conn_write(struct conn* conn, void* buf, int len) {
     if (conn->stat == CONN_CLOSED)
         goto conn_write_failed;
+    PLOGD("TOTAL: %d", len);
     while (len) {
         int rlen = conn_try_io(0, conn->fd, buf, len);
         if (rlen == -1)
@@ -123,6 +125,7 @@ int conn_write(struct conn* conn, void* buf, int len) {
         buf += rlen;
         len -= rlen;
     }
+    PLOGD("DONE");
     return 0;
 
 conn_write_failed:
@@ -131,7 +134,8 @@ conn_write_failed:
     return -1;
 }
 
-int conn_copy(struct conn* conn_in, struct conn* conn_out, int len) {
+int conn_copy(struct conn* conn_out, struct conn* conn_in, int len) {
+    PLOGD("TOTAL: %d", len);
     if (conn_in->buf_s < conn_in->buf_e) {
         // Copy from conn_in buf
         int buf_len = conn_in->buf_e - conn_in->buf_s;
@@ -149,6 +153,7 @@ int conn_copy(struct conn* conn_in, struct conn* conn_out, int len) {
             conn_close(conn_in);
             return -1;
         }
+        PLOGD("%d", rlen);
         conn_in->buf_e = rlen;
         int copy_len = len > rlen ? rlen : len;
         int ret = conn_write(conn_out, conn_in->buf, copy_len);

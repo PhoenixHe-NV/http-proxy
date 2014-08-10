@@ -27,19 +27,23 @@ void mem_free(void* ptr) {
 void* mem_alloc_auto(ssize_t size) {
     ssize_t* ret = (ssize_t*) mem_alloc(size + MEM_CNT_SIZE);
     *ret = 1;
+    PLOGF("ALLOC AUTO!!!!!!!!!! size: %d", size);
     return ret + 1;
 }
 
 void mem_incref(void* ptr) {
     ++MEM_CNT(ptr);
+    PLOGF("INCREF!");
 }
 
 int mem_decref(void* ptr, void (*done)(void*)) {
     if (--MEM_CNT(ptr) == 0) {
         if (done) done(ptr);
         mem_free((ssize_t*)ptr-1);
+        PLOGF("DECREF FREE!!!!!!!!!!!!!");
         return 0;
     }
+    PLOGD("DECREF!");
     return 1;
 }
 

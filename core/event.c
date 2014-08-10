@@ -13,6 +13,7 @@
 struct handler_table {
     event_id eid;
     event_handler handler;
+    void* data;
     UT_hash_handle hh;
 };
 
@@ -28,28 +29,23 @@ struct event {
 
 static struct event *head = NULL, *tail = NULL;
 
-static UT_icd event_icd = {sizeof(event_id), NULL, NULL, NULL};
-
-static UT_array id_freelist;
-
 void event_module_init() {
-    utarray_init(&id_freelist, &event_icd);
 }
 
 void event_module_done() {
-    utarray_done(&id_freelist);
+    event_work();
+    struct handler_table *h, *tmp;
+    HASH_ITER(hh, handlers, h, tmp) {
+        HASH_DEL(handlers, h);
+        mem_free(h);
+    }
 }
 
 event_id event_get_id() {
-    if (utarray_len(&id_freelist) == 0)
-        return id_max++;
-    event_id ret = *utarray_back(&id_freelist);
-    utarray_pop_back(&id_freelist);
-    return ret;
+    return id_max++;
 }
 
 void event_free_id(event_id eid) {
-    utarray_push_back(&id_freelist, &eid);
     struct handler_table* h;
     HASH_FIND(hh, handlers, &eid, sizeof(event_id), h);
     if (h) {
@@ -58,15 +54,16 @@ void event_free_id(event_id eid) {
     }
 }
 
-int event_set_handler(event_id eid, event_handler handler) {
+int event_set_handler(event_id eid, event_handler handler, void* data) {
     struct handler_table* h;
     HASH_FIND(hh, handlers, &eid, sizeof(event_id), h);
     if (h == NULL) {
-        h = mem_alloc(sizeof(handler_table));
+        h = mem_alloc(sizeof(struct handler_table));
         h->eid = eid;
         HASH_ADD(hh, handlers, eid, sizeof(event_id), h);
     }
     h->handler = handler;
+    h->data = data;
     return 0;
 }
 
@@ -77,8 +74,10 @@ int event_post(event_id eid, void* data) {
     ev->next = NULL;
     if (tail == NULL)
         head = tail = ev;
-    else
+    else {
         tail->next = ev;
+        tail = ev;
+    }
     return 0;
 }
 
@@ -93,10 +92,10 @@ int event_work() {
         if (h == NULL) {
             PLOGD("NO HANDLER FOUND!");
         } else {
-            h->handler(head->data);
+            h->handler(eid, h->data, head->data);
         }
 
-        struct event_t* next = head->next;
+        struct event* next = head->next;
         mem_free(head);
         head = next;
     }

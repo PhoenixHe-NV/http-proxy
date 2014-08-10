@@ -4,7 +4,6 @@
 #include <string.h>
 #include <errno.h>
 
-#define PROXY_LOG_LEN           256
 
 #define PROXY_LOG_LEVEL_DEBUG   2
 #define PROXY_LOG_LEVEL_INFO    3

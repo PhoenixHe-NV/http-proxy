@@ -18,7 +18,7 @@ int conn_gets(struct conn* conn, int len_limit, struct strbuf* buf);
 // Write all
 int conn_write(struct conn* conn, void* buf, int len);
 
-int conn_copy(struct conn* conn_in, struct conn* conn_out, int len);
+int conn_copy(struct conn* conn_out, struct conn* conn_in, int len);
 
 void conn_close(struct conn* conn);
 

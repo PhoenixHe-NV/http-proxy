@@ -6,6 +6,11 @@
 
 #define HTTP_HEADER_MAXLEN          4096
 #define HTTP_HEADER_KEY_MAXLEN      32
+#define HTTP_CHUNK_HEADER_MAXLEN    256
+
+#define DOMAIN_MAXLEN               256
+
+#define PROXY_LOG_LEN               4096
 
 #define SOCKADDR_LEN                sizeof(sockaddr_in6)
 
