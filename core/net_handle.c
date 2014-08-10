@@ -149,18 +149,13 @@ static int net_req_handler(struct conn* client, void** data_ptr) {
             mem_decref(req, net_req_done);
             goto req_done;
         }
-
-        ret = h->req_handler(&cxt, req);
         
-        PLOGD("RET: %d", ret);
+        ret = h->req_handler(&cxt, req);
         
         if (ret) {
             mem_decref(req, net_req_done);
             goto req_done;
         }
-        
-        if (cxt.rsp_blocked)
-            event_post(cxt.ev_notice_rsp, (void*)1);
         
         mem_decref(req, net_req_done);
     }
@@ -188,7 +183,6 @@ req_done:
     struct conn_table *h, *tmp;
     HASH_ITER(hh, cxt.pool, h, tmp) {
         // conn_free(h->server);
-        PLOGD("DECREF SERVER");
         mem_decref(h->server, conn_done);
         HASH_DEL(cxt.pool, h);
         mem_free(h);
@@ -251,15 +245,15 @@ static int net_rsp_handler(void* data) {
             HASH_FIND(hh, cxt->pool, 
                       &h->server->ep, sizeof(struct conn_endpoint), t);
             HASH_DEL(cxt->pool, t);
+            mem_decref(h->server, conn_done);
             mem_free(t);
-        }
-        mem_decref(h->server, conn_done);
-        mem_decref(h->req, net_req_done);
-        
-        if (ret == 100) {
+        } else if (ret == 100) {
             // HTTP 100 CONTINUE
             continue;
         }
+        
+        mem_decref(h->server, conn_done);
+        mem_decref(h->req, net_req_done);
         cxt->head = h->next;
         if (cxt->head == NULL)
             cxt->tail = NULL;
@@ -335,10 +329,17 @@ struct conn* net_connect_to_server(struct net_handle_cxt* cxt,
         // Try local connection pool first
         HASH_FIND(hh, cxt->pool, &ep, sizeof(ep), t);
         if (t) {
-            PLOGD("Got server connection from cxt pool");
             server = t->server;
-            mem_incref(server);
-            break;
+            if (server->stat == CONN_CLOSED) {
+                HASH_DEL(cxt->pool, t);
+                mem_decref(server, conn_done);
+                mem_free(t);
+                PLOGD("Server closed connection.");
+            } else {
+                PLOGD("Got server connection from cxt pool");
+                mem_incref(server);
+                break;
+            }
         }
 
         // Try to get from global pool
@@ -346,6 +347,11 @@ struct conn* net_connect_to_server(struct net_handle_cxt* cxt,
         if (server == NULL) {
             PLOGE("Cannot connect to %s", ep_tostring(&ep));
             continue;
+        }
+        
+        if (server->stat == CONN_CLOSED) {
+            PLOGE("Server connection closed");
+            mem_decref(server, conn_done);
         }
 
         PLOGD("Got server connection from free pool");
@@ -357,7 +363,6 @@ struct conn* net_connect_to_server(struct net_handle_cxt* cxt,
         PLOGD("ADD SERVER TO CONN POOL");
         HASH_ADD(hh, cxt->pool, ep, sizeof(struct conn_endpoint), t);
         // Server in the pool, server will be returned
-        mem_incref(server);
         mem_incref(server);
         break;
     }

@@ -14,7 +14,7 @@
 #include "../csapp.h"
 
 
-static int net_transfer_body(struct conn* dst,
+static int net_transfer_body_HTTP_1_1(struct conn* dst,
                              struct conn* src,
                              struct net_data* data) {
     if (strcmp(data->buf.p, "HEAD") == 0)
@@ -107,44 +107,48 @@ static int net_http_req_handler(struct net_handle_cxt* cxt,
 //    net_bad_gateway(client);
 //    return -1;
 
-    struct conn* server = net_connect_to_server(cxt, buf->p + req->host, 
-                                                htons(req->port));
-    if (server == NULL) {
-        // No server available
-        net_bad_gateway(client);
-        return -1;
-    }
-    
-    // TODO Check headers and http version
-    
-    net_data_set_ent_offset(req->data, "Host", req->host);
-    
-    int ret = net_forward_req_header(req, server);
-    if (ret)
-        goto req_done;
-    
-    ret = net_transfer_body(server, client, req->data);
-    if (ret == 0) {
-        // Add req to the cxt list
-        struct net_handle_list* p = mem_alloc(sizeof(struct net_handle_list));
-        p->server = server;
-        mem_incref(server);
-        p->next = NULL;
-        p->req = req;
-        mem_incref(req);
-        
-        if (cxt->head == NULL)
-            cxt->head = cxt->tail = p;
-        else {
-            cxt->tail->next = p;
-            cxt->tail = p;
+    struct conn* server = NULL;
+    int ret = 0;
+    while (1) {
+        server = net_connect_to_server(cxt, buf->p + req->host, 
+                                       htons(req->port));
+        if (server == NULL) {
+            // No server available
+            net_bad_gateway(client);
+            return -1;
         }
-    } else {
-        // Cannot recover... close client, quit session
-        conn_close(client);
+        
+        // TODO Check headers and http version
+        
+        net_data_set_ent_offset(req->data, "Host", req->host);
+        
+        ret = net_forward_req_header(req, server);
+        
+        if (ret == 0)
+            break;
+        mem_decref(server, conn_done);
     }
     
-req_done:
+    // Add req to the cxt list
+    struct net_handle_list* p = mem_alloc(sizeof(struct net_handle_list));
+    p->server = server;
+    mem_incref(server);
+    p->next = NULL;
+    p->req = req;
+    mem_incref(req);
+    
+    if (cxt->head == NULL)
+        cxt->head = cxt->tail = p;
+    else {
+        cxt->tail->next = p;
+        cxt->tail = p;
+    }
+    
+    if (cxt->rsp_blocked)
+        event_post(cxt->ev_notice_rsp, (void*)1);
+    
+    ret = net_transfer_body_HTTP_1_1(server, client, req->data);
+    
     if (ret)
         net_bad_gateway(client);
     mem_decref(server, conn_done);
@@ -152,7 +156,7 @@ req_done:
 }
 
 static int net_http_rsp_handler(struct net_handle_cxt* cxt,
-                          struct conn* server) {
+                                struct conn* server) {
     struct conn* client = cxt->client;
     
     struct net_data* data = mem_alloc(sizeof(struct net_data));
@@ -181,10 +185,32 @@ static int net_http_rsp_handler(struct net_handle_cxt* cxt,
     // TODO check headers and http version
     
     ret = net_forward_rsp_header(&rsp, client);
-    if (ret)
+    if (ret) {
+        net_rsp_done(&rsp);
         return ret;
+    }
     
-    ret = net_transfer_body(client, server, rsp.data);
+    if (rsp.ver_major*100 + rsp.ver_minor > 100) {
+        // Higher than http 1.0
+        ret = net_transfer_body_HTTP_1_1(client, server, rsp.data);
+    } else {
+        PLOGD("Forwarding http 1.0 response");
+        while (1) {
+            ret = conn_copy(client, server, 64*1024);
+            if (ret < 0) {
+                ret = 0;
+                break;
+            }
+        }
+        conn_close(client);
+        conn_close(server);
+    }
+    
+    struct net_req* req = cxt->head->req;
+    if (req->ver_major*100 + req->ver_minor <= 100 && rsp.code != 100) {
+        PLOGD("For http 1.0 response: close client connection");
+        conn_close(client);
+    }
     
     if (ret == 0)
         ret = rsp.code;

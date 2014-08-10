@@ -11,6 +11,7 @@ static int conn_try_io(int if_recv, int fd, void* buf, int len) {
             ret = recv(fd, buf, len, 0);
         else    
             ret = send(fd, buf, len, 0);
+        PLOGD("RET: %d", ret);
         if (ret == 0) {
             // Socket closed
             PLOGD("Socket closed", ret);
@@ -21,13 +22,14 @@ static int conn_try_io(int if_recv, int fd, void* buf, int len) {
             conn_notice notice;
             notice.io_block.fd = fd;
             notice.io_block.flag = if_recv ? EPOLLIN : EPOLLOUT;
-            PLOGD("WILL BLOCK");
+            PLOGD("WILL BLOCK ON %s", (if_recv ? "recv()" : "send()"));
             ret = async_yield(CONN_IO_WILL_BLOCK, &notice);
             PLOGD("BACK");
             if (ret == 0)
                 // Try again
                 continue;
             PLOGD("async_yield returned %d", ret);
+            continue;
         }
         break;
     }
@@ -67,8 +69,8 @@ int conn_getc(struct conn* conn) {
     if (conn->buf_s < conn->buf_e)
         // Read from conn buf
         return conn->buf[conn->buf_s++];
-    if (conn->stat == CONN_CLOSED)
-        goto conn_getc_failed;
+    // if (conn->stat == CONN_CLOSED)
+    //    goto conn_getc_failed;
     // Buf is empty. Read some from socket
     conn->buf_s = conn->buf_e = 0;
     int rlen = conn_try_io(1, conn->fd, conn->buf, conn->buf_cap);
@@ -150,6 +152,7 @@ int conn_copy(struct conn* conn_out, struct conn* conn_in, int len) {
         int rlen = conn_try_io(1, conn_in->fd, conn_in->buf, conn_in->buf_cap);
         // conn_in error or reaches EOF
         if (rlen == -1 || rlen == 0) {
+            PLOGE("CONN_COPY REACHES EOF");
             conn_close(conn_in);
             return -1;
         }

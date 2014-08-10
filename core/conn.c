@@ -53,10 +53,21 @@ conn_init(struct conn* conn, int fd, struct conn_endpoint* ep) {
 void 
 conn_done(void* p) {
     struct conn* conn = (struct conn*) p;
-    PLOGD("CONN FREE %s fd: %d", ep_tostring(&conn->ep), conn->fd);
     if (conn->stat != CONN_CLOSED)
         conn_close(conn);
+    else {
+        net_pull_del(conn->fd);
+        close(conn->fd);
+    }
     mem_free(conn->buf);
+}
+
+int
+conn_err_handler(struct epoll_event ev, void* data) {
+    PLOGD("CONN ERR");
+    struct conn* conn = (struct conn*) data;
+    conn->stat = CONN_CLOSED;
+    return 0;
 }
 
 static void
@@ -202,7 +213,6 @@ conn_accept_handler(struct epoll_event ev, void* data) {
             close(fd);
             return -1;
         }
-        net_pull_add(fd, EPOLLIN | EPOLLOUT);
         
         // Construct endpoint
         struct conn_endpoint ep;
@@ -227,6 +237,8 @@ conn_accept_handler(struct epoll_event ev, void* data) {
         struct conn* conn = mem_alloc_auto(sizeof(struct conn));
         conn_init(conn, fd, &ep);
         conn->stat = CONN_USED;
+        
+        net_pull_add(fd, conn_err_handler, conn);
         
         // Call req handler first
         struct async_cxt* cxt_req = mem_alloc_auto(sizeof(struct async_cxt));
@@ -324,7 +336,7 @@ conn_module_init() {
             goto bind_failed;
         }
         
-        net_pull_add(fd, EPOLLIN);
+        net_pull_add(fd, NULL, NULL);
         net_pull_set_handler(fd, EPOLLIN, conn_accept_handler, sfds + sfd_cnt);
         
         sfds[sfd_cnt++] = fd;
@@ -426,7 +438,9 @@ conn_get_by_endpoint(struct conn_endpoint* ep) {
     if (ret < 0 && errno != EINPROGRESS)
         goto conn_error;
     
-    net_pull_add(fd, EPOLLIN | EPOLLOUT | EPOLLRDHUP);
+    conn = mem_alloc_auto(sizeof(struct conn));
+    conn->stat = CONN_CLOSED;
+    net_pull_add(fd, conn_err_handler, conn);
     if (ret < 0 && errno == EINPROGRESS) {
         // will block
         conn_notice notice;
@@ -435,13 +449,13 @@ conn_get_by_endpoint(struct conn_endpoint* ep) {
         int ret = async_yield(CONN_IO_WILL_BLOCK, &notice);
         if (ret == -1) {
             net_pull_del(fd);
+            mem_decref(conn, NULL);
             return NULL;
         }
     }
     
     PLOGD("Connected");
     
-    conn = mem_alloc_auto(sizeof(struct conn));
     conn_init(conn, fd, ep);
     return conn;
     

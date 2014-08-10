@@ -4,6 +4,7 @@
 
 #include "utlib.h"
 #include "net_pull.h"
+#include "net_utils.h"
 #include "mem.h"
 #include "log.h"
 
@@ -11,8 +12,8 @@
 
 struct net_handler_t {
     int fd;
-    net_pull_handler_t h_read, h_write;
-    void *d_read, *d_write;
+    net_pull_handler_t h_read, h_write, h_err;
+    void *d_read, *d_write, *d_err;
     UT_hash_handle hh;
 };
 
@@ -54,7 +55,10 @@ int net_pull_work() {
         HASH_FIND_INT(handlers, &fd, h);
         memcpy(&nh, h, sizeof(struct net_handler_t));
         h->h_read = h->h_write = h->d_read = h->d_write = NULL;
-
+        
+        if (proxy_epoll_err(events[i]) && nh.h_err)
+            nh.h_err(events[i], nh.d_err);
+        
         if (nh.h_read) {
             PLOGD("READ handler for fd %d", fd);
             nh.h_read(events[i], nh.d_read);
@@ -69,13 +73,13 @@ int net_pull_work() {
     return 0;
 }
 
-int net_pull_add(int fd, int event) {
-    PLOGD("Adding fd: %d event: %d", fd, event);
+int net_pull_add(int fd, net_pull_handler_t h_err, void* d_err) {
+    PLOGD("Adding fd: %d", fd);
 
     struct epoll_event ev;
     memset(&ev, 0, sizeof(struct epoll_event));
     ev.data.fd = fd;
-    ev.events = event | EPOLLET;
+    ev.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLET;
     if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev) < 0) {
         PLOGUE("epoll_ctl: add fd");
         return -1;
@@ -86,7 +90,9 @@ int net_pull_add(int fd, int event) {
     if (h == NULL) {
         h = mem_alloc(sizeof(struct net_handler_t));
         h->fd = fd;
-        h->h_read = h->h_write = h->d_read = h->d_write = NULL;
+        h->h_read = h->h_write = NULL;
+        h->h_err = h_err;
+        h->d_err = d_err;
         HASH_ADD_INT(handlers, fd, h);
     }
     ++fd_cnt;
@@ -149,6 +155,9 @@ int net_pull_done() {
     for (i = v; i != p; ++i) {
         struct net_handler_t nh;
         memcpy(&nh, *i, sizeof(struct net_handler_t));
+        
+        if (nh.h_err)
+            nh.h_err(close_ev, nh.d_err);
 
         if (nh.h_read)
             nh.h_read(close_ev, nh.d_read);

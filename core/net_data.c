@@ -269,10 +269,10 @@ int net_forward_req_header(struct net_req* req, struct conn* conn) {
     net_append_headers(req->data, &buf);
     
     PLOGD("%s", buf.p);
-    conn_write(conn, buf.p, buf.len);
+    int ret = conn_write(conn, buf.p, buf.len);
     
     strbuf_done(&buf);
-    return 0;
+    return ret;
 }
 
 int net_forward_rsp_header(struct net_rsp* rsp, struct conn* conn) {
