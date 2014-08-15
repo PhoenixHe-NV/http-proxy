@@ -53,6 +53,8 @@ int net_pull_work() {
         PLOGD("Handling event: %d fd: %d", events[i].events, fd);
         struct net_handler_t* h, nh;
         HASH_FIND_INT(handlers, &fd, h);
+        if (h == NULL)
+            continue;
         memcpy(&nh, h, sizeof(struct net_handler_t));
         h->h_read = h->h_write = h->d_read = h->d_write = NULL;
         
@@ -103,6 +105,11 @@ int net_pull_set_handler(int fd, int flag, net_pull_handler_t handler, void* dat
     PLOGD("Setting handler with fd: %d", fd);
     struct net_handler_t* h;
     HASH_FIND_INT(handlers, &fd, h);
+    
+    if (h == NULL) {
+        PLOGD("Failed... fd %d not found", fd);
+        return -1;
+    }
 
     if (flag & EPOLLIN) {
         PLOGD("set READ handler for fd: %d", fd);
@@ -146,8 +153,10 @@ int net_pull_done() {
         return 0;
     v = (struct net_handler_t**) mem_alloc(cnt*sizeof(struct net_handler_t**));
     p = v;
-    HASH_ITER(hh, handlers, h, tmp)
+    HASH_ITER(hh, handlers, h, tmp) {
         *p++ = h;
+        close(h->fd);
+    }
     HASH_CLEAR(hh, handlers);
 
     struct epoll_event close_ev;

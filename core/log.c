@@ -2,6 +2,7 @@
 #include <time.h>
 #include <string.h>
 #include <stdarg.h>
+#include <arpa/inet.h>
 
 #include "arg.h"
 #include "log.h"
@@ -62,7 +63,7 @@ void _PROXY_LOG(int level, const char* file, int line, const char* desc, ...) {
     if (level < arg.verbose)
         return;
     
-    char buf[PROXY_LOG_LEN];
+    static char buf[PROXY_LOG_LEN];
     va_list argptr;
     va_start(argptr, desc);
     char* format = va_arg(argptr, char*);
@@ -73,11 +74,25 @@ void _PROXY_LOG(int level, const char* file, int line, const char* desc, ...) {
     fflush(arg.log_file);
 }
 
+void log_http_req(struct conn_endpoint* ep, char* host, char* path, int size) {
+    time_t now;
+    static char time_str[PROXY_LOG_LEN];
+    static char ip_str[PROXY_LOG_LEN];
+
+    now = time(NULL);
+    strftime(time_str, PROXY_LOG_LEN, "%a %d %b %Y %H:%M:%S %Z", localtime(&now));
+
+    inet_ntop(ep->family, &ep->addr, ip_str, PROXY_LOG_LEN);
+
+    fprintf(arg.log_file, "%s: %s http://%s%s %d\n", time_str, ip_str, host, path, size);
+    fflush(arg.log_file);
+}
+
 void proxy_log_init() {
     if (arg.log_file)
         return;
-    arg.log_file = stderr;
-    PLOGD("Init log file with stderr");
+    arg.log_file = fopen("proxy.log", "w");
+    PLOGD("Init log file with proxy.log");
 }
 
 void proxy_log_done() {

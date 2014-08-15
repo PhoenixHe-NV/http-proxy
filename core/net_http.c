@@ -62,7 +62,6 @@ static int net_transfer_body_HTTP_1_1(struct conn* dst,
             break;
         }
         
-        PLOGD("%d", len);
         // Also copy the \r\n
         ret = conn_copy(dst, src, len+2);
         if (ret)
@@ -159,6 +158,8 @@ static int net_http_rsp_handler(struct net_handle_cxt* cxt,
                                 struct conn* server) {
     struct conn* client = cxt->client;
     
+    client->tx = 0;
+    
     struct net_data* data = mem_alloc(sizeof(struct net_data));
     net_data_init(data);
     int ret = net_fetch_http(server, data);
@@ -207,14 +208,19 @@ static int net_http_rsp_handler(struct net_handle_cxt* cxt,
     }
     
     struct net_req* req = cxt->head->req;
-    if (req->ver_major*100 + req->ver_minor <= 100 && rsp.code != 100) {
-        PLOGD("For http 1.0 response: close client connection");
-        conn_close(client);
-    }
     
     if (ret == 0)
         ret = rsp.code;
     
+    log_http_req(&client->ep, req->data->buf.p + req->host, 
+                 req->data->buf.p + req->path, client->tx);
+
+    PLOGI("%s %s %s:%d%s %d", ep_tostring(&client->ep),
+                            req->data->buf.p,
+                            req->data->buf.p + req->host,
+                            req->port,
+                            req->data->buf.p + req->path,
+                            client->tx);
     net_rsp_done(&rsp);
     return ret;
 }
@@ -271,6 +277,9 @@ static int net_connect_req_handler(struct net_handle_cxt* cxt,
             break;
     }
     
+    PLOGI("%s CONNECT %s %d", ep_tostring(client), 
+                              buf->p + req->host,
+                              client->tx);
     mem_decref(server, conn_done);
     return ret;
 }

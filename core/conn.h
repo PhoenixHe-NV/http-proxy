@@ -29,6 +29,7 @@ struct conn {
     // Read buf. No write buf
     char* buf;
     int buf_cap, buf_s, buf_e;
+    int rx, tx;
     enum conn_stat stat;
     struct conn_endpoint ep;
     struct conn_pool_ent* apool;

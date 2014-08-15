@@ -45,6 +45,7 @@ conn_init(struct conn* conn, int fd, struct conn_endpoint* ep) {
     conn->buf_cap = CONN_IOBUF_SIZE;
     conn->buf_s = conn->buf_e = 0;
     conn->stat = CONN_FREE;
+    conn->rx = conn->tx = 0;
     if (ep)
         memcpy(&conn->ep, ep, sizeof(struct conn_endpoint));
     conn->apool = NULL;

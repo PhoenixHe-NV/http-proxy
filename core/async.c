@@ -22,7 +22,6 @@ void async_init(struct async_cxt* cxt) {
 
 void async_done(void* p) {
     struct async_cxt* cxt = (struct async_cxt*) p;
-    PLOGD("free async_cxt");
     mem_free(cxt->uc.uc_stack.ss_sp);
 }
 
@@ -59,9 +58,7 @@ void async_resume(struct async_cxt* cxt, int retval) {
     cxt->yield_data = NULL;
     yield_ret = retval;
 
-    PLOGD("Switching to handler context!");
     swapcontext(&main_cxt, &cxt->uc);
-    PLOGD("Handler returned");
 
     if (cxt->stat == ASYNC_RUNNING)
         cxt->stat = ASYNC_FINISH;

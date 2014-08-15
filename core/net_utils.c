@@ -53,7 +53,8 @@ int net_dns_lookup(char* host, char* service, struct addrinfo** result) {
     if (strcmp("localhost", host) == 0) {
         ret = getaddrinfo(host, service, &hints, result);
     } else {
-        ret = getaddrinfo("10.6.0.127" , service, &hints, result);
+        //ret = getaddrinfo("10.6.0.127" , service, &hints, result);
+        ret = getaddrinfo(host, service, &hints, result);
     }
     return ret;
 }

@@ -1,17 +1,19 @@
 #include "log.h"
 #include "async.h"
 #include "strbuf.h"
+#include "main.h"
 
 #include "conn.h"
 
 static int conn_try_io(int if_recv, int fd, void* buf, int len) {
     int ret = 0;
     while (1) {
+        if (main_stat == EXITING)
+            return -1;
         if (if_recv)
             ret = recv(fd, buf, len, 0);
         else    
             ret = send(fd, buf, len, 0);
-        PLOGD("RET: %d", ret);
         if (ret == 0) {
             // Socket closed
             PLOGD("Socket closed", ret);
@@ -24,11 +26,9 @@ static int conn_try_io(int if_recv, int fd, void* buf, int len) {
             notice.io_block.flag = if_recv ? EPOLLIN : EPOLLOUT;
             PLOGD("WILL BLOCK ON %s", (if_recv ? "recv()" : "send()"));
             ret = async_yield(CONN_IO_WILL_BLOCK, &notice);
-            PLOGD("BACK");
             if (ret == 0)
                 // Try again
                 continue;
-            PLOGD("async_yield returned %d", ret);
             continue;
         }
         break;
@@ -44,7 +44,6 @@ int conn_read(struct conn* conn, void* buf, int len) {
         // Copy from conn buf
         int buf_len = conn->buf_e - conn->buf_s;
         int copy_len = (buf_len > len ? len : buf_len);
-        PLOGD("copy %d bytes from conn_buf", copy_len);
         memcpy(buf, conn->buf+conn->buf_s, copy_len);
         buf += copy_len;
         len -= copy_len;
@@ -77,17 +76,19 @@ int conn_getc(struct conn* conn) {
     if (rlen == -1)
         goto conn_getc_failed;
     conn->buf_e = rlen;
+    ++conn->rx;
     return conn->buf[conn->buf_s++];
 
 conn_getc_failed:
-    PLOGD("FAILED");
     conn_close(conn);
     return -1;
 }
 
 void conn_ungetc(struct conn* conn) {
-    if (conn->buf_s)
+    if (conn->buf_s) {
         --conn->buf_s;
+        --conn->rx;
+    }
 }
 
 int conn_gets(struct conn* conn, int len_limit, struct strbuf* buf) {
@@ -119,19 +120,17 @@ int conn_gets(struct conn* conn, int len_limit, struct strbuf* buf) {
 int conn_write(struct conn* conn, void* buf, int len) {
     if (conn->stat == CONN_CLOSED)
         goto conn_write_failed;
-    PLOGD("TOTAL: %d", len);
     while (len) {
         int rlen = conn_try_io(0, conn->fd, buf, len);
         if (rlen == -1)
             goto conn_write_failed;
         buf += rlen;
         len -= rlen;
+        conn->tx += rlen;
     }
-    PLOGD("DONE");
     return 0;
 
 conn_write_failed:
-    PLOGD("FAILED");
     conn_close(conn);
     return -1;
 }
@@ -145,6 +144,7 @@ int conn_copy(struct conn* conn_out, struct conn* conn_in, int len) {
         conn_write(conn_out, conn_in->buf+conn_in->buf_s, copy_len);
         conn_in->buf_s += copy_len;
         len -= copy_len;
+        conn_in->rx += copy_len;
     }
     while (len) {
         // Read buf is empty
@@ -152,11 +152,10 @@ int conn_copy(struct conn* conn_out, struct conn* conn_in, int len) {
         int rlen = conn_try_io(1, conn_in->fd, conn_in->buf, conn_in->buf_cap);
         // conn_in error or reaches EOF
         if (rlen == -1 || rlen == 0) {
-            PLOGE("CONN_COPY REACHES EOF");
+            PLOGD("CONN_COPY REACHES EOF");
             conn_close(conn_in);
             return -1;
         }
-        PLOGD("%d", rlen);
         conn_in->buf_e = rlen;
         int copy_len = len > rlen ? rlen : len;
         int ret = conn_write(conn_out, conn_in->buf, copy_len);
@@ -164,6 +163,7 @@ int conn_copy(struct conn* conn_out, struct conn* conn_in, int len) {
             return -1;
         conn_in->buf_s += copy_len;
         len -= copy_len;
+        conn_in->rx += copy_len;
     }
     return 0;
 }

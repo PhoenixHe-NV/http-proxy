@@ -6,7 +6,7 @@
 #include "arg.h"
 
 struct proxy_arg_t arg = {
-    -1, "localhost", PROXY_LOG_LEVEL_DEBUG, NULL
+    -1, "localhost", PROXY_LOG_LEVEL_INFO, NULL
 };
 
 static int usage(char* reason, char* exe) {
@@ -49,7 +49,7 @@ static int parse_port(char* port) {
     if (arg.port < 1 || arg.port > 65535)
         return -1;
     return 0;
-}
+    }
 
 int proxy_parse_arg(int argc, char** argv) {
     PLOGD("Start to parse arguments");

@@ -93,7 +93,7 @@ static regex_t rsp_re;
 
 // www.google.com:80
 // ^            $ ^$
-static char* host_patt = "^([a-z0-9\\-\\.]+)(:[0-9]+)?";
+static char* host_patt = "^([a-zA-Z0-9\\-\\.]+)(:[0-9]+)?";
 static regex_t host_re;
 
 void net_data_module_init() {
@@ -104,7 +104,7 @@ void net_data_module_init() {
     ret |= regcomp(&uri_re, uri_patt, REG_EXTENDED);
     ret |= regcomp(&rsp_re, rsp_patt, REG_EXTENDED);
     ret |= regcomp(&host_re, host_patt, REG_EXTENDED);
-    PLOGD("%d", ret);
+//    PLOGD("%d", ret);
 }
 
 void net_data_module_done() {

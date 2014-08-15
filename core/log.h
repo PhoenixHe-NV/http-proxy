@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "conn.h"
 
 #define PROXY_LOG_LEVEL_DEBUG   2
 #define PROXY_LOG_LEVEL_INFO    3
@@ -12,6 +13,8 @@
 #define PROXY_LOG_LEVEL_FATAL   6
 
 void _PROXY_LOG(int level, const char* extra_info, int line, const char* desc, ...);
+
+void log_http_req(struct conn_endpoint* ep, char* host, char* path, int size);
 
 void proxy_log_init();
 void proxy_log_done();
