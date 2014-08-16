@@ -83,7 +83,7 @@ static regex_t req_re;
 
 // http://www.google.com:80/?q=http-proxy
 // ^  $   ^               $^            $
-static char* uri_patt = "^([a-z]+)://([a-zA-Z0-9:\\.\\-]+)(\/.*)?$";
+static char* uri_patt = "^([a-z]+)://([a-zA-Z0-9:\\.\\-]+)(/.*)?$";
 static regex_t uri_re;
 
 // HTTP/1.1 200 OK
