@@ -22,4 +22,7 @@
 
 #define STRBUF_INIT_LEN             128
 
+#define SIG_DNS_NOTIFY              SIGUSR1
+
+
 #endif

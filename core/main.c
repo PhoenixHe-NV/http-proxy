@@ -10,6 +10,7 @@
 #include "event.h"
 #include "net_pull.c"
 #include "net_handle.h"
+#include "net_utils.h"
 #include "net_http.h"
 
 #include "main.h"
@@ -65,6 +66,8 @@ int proxy_main(int argc, char** argv) {
         PLOGD("Cannot init epoll. Aborting");
         goto proxy_main_exit;
     }
+    
+    net_utils_init();
 
     ret = conn_module_init();
     if (ret) {

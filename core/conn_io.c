@@ -5,7 +5,7 @@
 
 #include "conn.h"
 
-static int conn_try_io(int if_recv, int fd, void* buf, int len) {
+static int conn_try_io(int if_recv, int fd, void* buf, int len, int can_block) {
     int ret = 0;
     while (1) {
         if (main_stat == EXITING)
@@ -20,6 +20,8 @@ static int conn_try_io(int if_recv, int fd, void* buf, int len) {
             return -1;
         }
         if (ret == -1 && errno == EAGAIN) {
+            if (!can_block)
+                break;
             // Will block
             conn_notice notice;
             notice.io_block.fd = fd;
@@ -50,7 +52,8 @@ int conn_read(struct conn* conn, void* buf, int len) {
         conn->buf_s += copy_len;
     }
     while (len) {
-        int rlen = conn_try_io(1, conn->fd, buf, len);
+        int rlen = conn_try_io(1, conn->fd, buf, len, 
+                               conn->stat != CONN_CLOSED);
         if (rlen == -1 || rlen == 0)
             goto conn_read_failed;
         buf += rlen;
@@ -72,7 +75,8 @@ int conn_getc(struct conn* conn) {
     //    goto conn_getc_failed;
     // Buf is empty. Read some from socket
     conn->buf_s = conn->buf_e = 0;
-    int rlen = conn_try_io(1, conn->fd, conn->buf, conn->buf_cap);
+    int rlen = conn_try_io(1, conn->fd, conn->buf, conn->buf_cap,
+                           conn->stat != CONN_CLOSED);
     if (rlen == -1)
         goto conn_getc_failed;
     conn->buf_e = rlen;
@@ -121,7 +125,8 @@ int conn_write(struct conn* conn, void* buf, int len) {
     if (conn->stat == CONN_CLOSED)
         goto conn_write_failed;
     while (len) {
-        int rlen = conn_try_io(0, conn->fd, buf, len);
+        int rlen = conn_try_io(0, conn->fd, buf, len,
+                               conn->stat != CONN_CLOSED);
         if (rlen == -1)
             goto conn_write_failed;
         buf += rlen;
@@ -149,7 +154,8 @@ int conn_copy(struct conn* conn_out, struct conn* conn_in, int len) {
     while (len) {
         // Read buf is empty
         conn_in->buf_s = conn_in->buf_e = 0;
-        int rlen = conn_try_io(1, conn_in->fd, conn_in->buf, conn_in->buf_cap);
+        int rlen = conn_try_io(1, conn_in->fd, conn_in->buf, conn_in->buf_cap,
+                               conn_in->stat != CONN_CLOSED);
         // conn_in error or reaches EOF
         if (rlen == -1 || rlen == 0) {
             PLOGD("CONN_COPY REACHES EOF");

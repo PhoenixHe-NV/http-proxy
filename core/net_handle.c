@@ -71,6 +71,7 @@ int net_fetch_headers(struct conn* conn, struct net_data* data) {
 int net_fetch_http(struct conn* conn, struct net_data* data) {
     // Fetch startline
     int ret = conn_gets(conn, HTTP_HEADER_MAXLEN, &data->buf);
+    PLOGD("%d", ret);
     if (ret <= 0) {
         PLOGD("Cannot fetch startline");
         return ret;
@@ -94,7 +95,6 @@ static int net_req_handler(struct conn* client, void** data_ptr) {
     struct net_handle_cxt cxt;
     cxt.client = client;
     cxt.pool = NULL;
-    cxt.dns_cache = NULL;
     cxt.head = cxt.tail = NULL;
     cxt.ev_notice_req = event_get_id();
     cxt.ev_notice_rsp = event_get_id();
@@ -171,18 +171,11 @@ req_done:
         cxt.req_blocked = 0;
     }
     
-    // Free dns cache
-    struct dns_table *hd, *td;
-    HASH_ITER(hh, cxt.dns_cache, hd, td) {
-        freeaddrinfo(hd->result);
-        HASH_DEL(cxt.dns_cache, hd);
-        mem_free(hd);
-    }
-    
     // Return all the free connection to conn_pool
     struct conn_table *h, *tmp;
     HASH_ITER(hh, cxt.pool, h, tmp) {
         // conn_free(h->server);
+        conn_close(h->server);
         mem_decref(h->server, conn_done);
         HASH_DEL(cxt.pool, h);
         mem_free(h);
@@ -284,22 +277,12 @@ struct conn* net_connect_to_server(struct net_handle_cxt* cxt,
     
     struct addrinfo *res, *rp;
     
-    // Try to get result from dns cache
-    struct dns_table* h;
-    HASH_FIND_STR(cxt->dns_cache, host, h);
-    if (h) {
-        res = h->result;
-    } else {
-        int ret = net_dns_lookup(host, NULL, &res);
-        if (ret) {
-            PLOGUE("getaddrinfo");
-            return NULL;
-        }
-        h = mem_alloc(sizeof(struct dns_table));
-        strcpy(h->host, host);
-        h->result = res;
-        HASH_ADD_STR(cxt->dns_cache, host, h);
+    int ret = net_dns_lookup_a(host, NULL, &res);
+    if (ret) {
+        PLOGUE("getaddrinfo");
+        return NULL;
     }
+
 
     // Try all the dns results. Try to get server connection.
     struct conn* server = NULL;

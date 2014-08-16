@@ -18,12 +18,6 @@ struct conn_table {
     UT_hash_handle hh;
 };
 
-struct dns_table {
-    char host[DOMAIN_MAXLEN];
-    struct addrinfo* result;
-    UT_hash_handle hh;
-};
-
 struct net_handle_list {
     struct conn* server;
     // NOTE: autoptr for all the net_req*
@@ -34,7 +28,6 @@ struct net_handle_list {
 struct net_handle_cxt {
     struct conn* client;
     struct conn_table* pool;
-    struct dns_table* dns_cache;
     struct net_handle_list *head, *tail;
     event_id ev_notice_req, ev_notice_rsp;
     uint8_t req_blocked, rsp_blocked, req_will_exit, rsp_will_exited;

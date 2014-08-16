@@ -47,8 +47,8 @@ void net_data_del_ent(struct net_data* data, char* key) {
 }
 
 void net_data_set_ent(struct net_data* data, char* key, char* val) {
-    struct net_header_ent* h;
-    HASH_FIND_STR(data->table, key, h);
+    struct net_header_ent* h = NULL;
+    //HASH_FIND_STR(data->table, key, h);
     if (h == NULL) {
         h = mem_alloc(sizeof(struct net_header_ent));
         strncpy(h->key, key, HTTP_HEADER_KEY_MAXLEN);
@@ -61,8 +61,8 @@ void net_data_set_ent(struct net_data* data, char* key, char* val) {
 }
 
 void net_data_set_ent_offset(struct net_data* data, char* key,int offset) {
-    struct net_header_ent* h;
-    HASH_FIND_STR(data->table, key, h);
+    struct net_header_ent* h = NULL;
+    // HASH_FIND_STR(data->table, key, h);
     if (h == NULL) {
         h = mem_alloc(sizeof(struct net_header_ent));
         strncpy(h->key, key, HTTP_HEADER_KEY_MAXLEN);
@@ -83,7 +83,7 @@ static regex_t req_re;
 
 // http://www.google.com:80/?q=http-proxy
 // ^  $   ^               $^            $
-static char* uri_patt = "^([a-z]+)://([a-z0-9\\-\\.]+)(:[0-9]+)?(\\/.*)?$";
+static char* uri_patt = "^([a-z]+)://([a-zA-Z0-9:\\.\\-]+)(\/.*)?$";
 static regex_t uri_re;
 
 // HTTP/1.1 200 OK
@@ -93,18 +93,24 @@ static regex_t rsp_re;
 
 // www.google.com:80
 // ^            $ ^$
-static char* host_patt = "^([a-zA-Z0-9\\-\\.]+)(:[0-9]+)?";
+static char* host_patt = "^([a-zA-Z0-9\\.\\-]+)(:[0-9]+)?";
 static regex_t host_re;
 
 void net_data_module_init() {
     PLOGD("Compiling regex");
     int ret;
     ret = regcomp(&header_re, header_patt, REG_EXTENDED);
+    PLOGD("%s", header_patt);
     ret |= regcomp(&req_re, req_patt, REG_EXTENDED);
+    PLOGD("%s", req_patt);
     ret |= regcomp(&uri_re, uri_patt, REG_EXTENDED);
+    PLOGD("%s", uri_patt);
     ret |= regcomp(&rsp_re, rsp_patt, REG_EXTENDED);
+    PLOGD("%s", rsp_patt);
     ret |= regcomp(&host_re, host_patt, REG_EXTENDED);
-//    PLOGD("%d", ret);
+    PLOGD("%s", host_patt);
+    
+    PLOGD("%d", ret);
 }
 
 void net_data_module_done() {
@@ -175,8 +181,8 @@ int net_parse_req(struct net_req* req) {
         req->protocol = offset + res[1].rm_so;
         buf->p[offset + res[1].rm_eo] = '\0';
         req->host = offset + res[2].rm_so;
-        req->path = offset + res[4].rm_so;
-        if (res[4].rm_so == -1) {
+        req->path = offset + res[3].rm_so;
+        if (res[3].rm_so == -1) {
             req->path = buf->len;
             // Default path is '/'
             strbuf_cat(buf, "/\0");
@@ -313,4 +319,4 @@ void net_rsp_done(void* data) {
     struct net_rsp* rsp = (struct net_rsp*) data;
     net_data_done(rsp->data);
     mem_free(rsp->data);
-    }
+}

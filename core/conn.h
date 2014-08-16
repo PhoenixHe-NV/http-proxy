@@ -52,7 +52,7 @@ typedef union conn_notice_u {
 typedef int (*conn_req_handler)(struct conn* conn, void** data_ptr);
 typedef int (*conn_rsp_handler)(void* data);
 
-char* ep_tostring(struct conn_endpoint* ep);
+const char* ep_tostring(struct conn_endpoint* ep);
 
 void conn_done(void* conn);
 

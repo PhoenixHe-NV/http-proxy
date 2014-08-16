@@ -295,8 +295,8 @@ conn_module_init() {
             PLOGUE("socket");
             continue;
         }
-        
-        int flag = 0;
+
+        int flag = 1;
         if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag , sizeof(int)) < 0) {
             PLOGUE("setsockopt: SO_REUSEADDR");
             goto bind_failed;
@@ -326,17 +326,16 @@ conn_module_init() {
             PLOGUE("bind");
             goto bind_failed;
         }
-        
+
         if (net_setnonblocking(fd)) {
-            close(fd);
-            return -1;
+            goto bind_failed;
         }
         
         if (listen(fd, 16) < 0) {
             PLOGUE("listen");
             goto bind_failed;
         }
-        
+
         net_pull_add(fd, NULL, NULL);
         net_pull_set_handler(fd, EPOLLIN, conn_accept_handler, sfds + sfd_cnt);
         
@@ -474,7 +473,7 @@ conn_notice_free_connection_closed(struct epoll_event ev, void* data) {
         PLOGI("Idle connection to %s closed", 
               ep_tostring(&conn->ep));
     } else {
-        PLOGE("Someting strange happend on an idle connection to %s . Closing it",
+        PLOGE("Someting strange happend on an idle connection to %s .",
               ep_tostring(&conn->ep));
         net_pull_set_handler(conn->fd, EPOLLIN,
                              conn_notice_free_connection_closed, conn);
@@ -495,7 +494,7 @@ void conn_free(struct conn* conn) {
                          conn_notice_free_connection_closed, conn);
 }
 
-char* ep_tostring(struct conn_endpoint* ep) {
+const char* ep_tostring(struct conn_endpoint* ep) {
     static char buf[256];
     const char* ret = inet_ntop(ep->family, &ep->addr, buf+1, 255);
     if (ret == NULL)
