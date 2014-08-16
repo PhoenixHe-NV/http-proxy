@@ -1,6 +1,6 @@
-CC = clang
+CC = gcc
 #CFLAGS = -pthread -O2
-CFLAGS = -pthread -g -O0
+CFLAGS = -pthread -g -O0 -lanl
 
 all: proxy.c csapp.c
 	cd core && make

@@ -119,7 +119,8 @@ static int net_http_req_handler(struct net_handle_cxt* cxt,
         
         // TODO Check headers and http version
         
-        net_data_set_ent_offset(req->data, "Host", req->host);
+        if (net_data_get_ent(req->data, "Host") == NULL)
+            net_data_set_ent_offset(req->data, "Host", req->host);
         
         ret = net_forward_req_header(req, server);
         
