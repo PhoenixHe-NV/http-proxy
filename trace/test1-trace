@@ -1,0 +1,157 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>DM / 2014 / Welcome</title>
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="dm.css" type="text/css">
+<script type="text/javascript"> 
+    function autofill_email() {
+        var spans = document.getElementsByTagName("span");
+        for (i = 0; i < spans.length; i++) {
+            if (spans[i].className != "email_autofill")
+                continue;
+            spans[i].innerHTML = spans[i].innerHTML.replace(/ at /, "@");
+        }
+    }
+ 
+    function page_onload() {
+        autofill_email();
+    }
+</script>
+</head>
+
+
+<body bgcolor="#ffffff" text="#000000" onLoad="page_onload()">
+<table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0">
+<tbody>
+<!-- Menu begin -->
+
+    <!-- Header row -->
+    <tr height="60">
+      <td colspan="3">
+	<table width="100%" height="60" border="0" cellspacing="0"
+	       cellpadding="0">
+	  <tbody>
+	    <tr> 
+	      <td width="70%" bgcolor="#000000">
+		<div align="left" class="titleHead header">
+		  <a name="top"><b><i>DM</i>: Discrete Mathematics (II)</b></a>
+		</div>
+	      </td>
+	      <td bgcolor="#0099cc" halign="center" valign="center" width="30%">
+		<div align="center" class="titleHead header">
+		  <b>DM(II) 2014</b>
+		</div>
+	      </td> 
+	    </tr> 
+	  </tbody> 
+      </table>
+      </td> 
+    </tr> 
+    <!-- horiz line --> 
+    <tr> 
+      <td colspan="3" height="2" bgcolor="#0099cc"> <br> </td> 
+    </tr> 
+    <tr> 
+      <!-- Menu --> 
+      <td bgcolor="#0099cc" valign="top" width="180"> <table cols="2"
+							     rows="1"
+							     border="0"
+							     cellspacing="0"
+							     cellpadding="0"
+							     width="100%"
+							     height="100%">
+	  <tbody> 
+	    <tr> 
+	      <td valign="top">
+		<table cols="1" rows="1" border="0" cellspacing="0"
+				       cellpadding="0" width="100%"> 
+		  <tbody> 
+		    <tr> 
+		      <td> <div class="menuHead"> <a href="index.shtml"
+			    class="menuItem"> Home /
+			    News</a></div></td>
+		    </tr> 
+		    <tr> 
+		      <td> <div class="menuHead"> <a href="schedule.shtml"
+				class="menuItem">Schedule</a> </div></td>
+		    </tr> 
+		    <tr> 
+		      <td>
+			  <hr>
+		      </td> 
+		    </tr> 
+		    <tr> 
+		      <td> <div class="menuHead"> <a href="general.shtml"
+				class="menuItem">General Information </a> </div></td>
+		    </tr> 
+		    <tr> 
+		      <td> <div class="menuHead"> <a href="general.shtml#staff" class="menuItem">Staff List</a>
+		      </div></td> 
+		    </tr> 
+		    <tr> 
+		      <td> <div class="menuHead"> <a href="errata.shtml" class="menuItem">Class Notes Errata</a>
+		      </div></td> 
+		    </tr>
+			<tr> 
+		      <td> <div class="menuHead"> <a href="qa.shtml" class="menuItem">Q&A Forum</a>
+		      </div></td> 
+		    </tr>
+		    <tr> 
+		      <td>
+			  <hr> 
+		      </td> 
+		    </tr>
+		  </tbody> 
+	      </table></td> 
+	      <td width="3" bgcolor="#0099cc"> <br> </td> 
+	    </tr> 
+	  </tbody> 
+      </table></td> 
+      <!-- End Menu --> 
+
+
+<!-- Menu end & Content begin -->
+      <td colspan="2"> <table border="0" cellspacing="0" cellpadding="0" width="100%" height="100%"> 
+	  <tbody> 
+	    <tr> 
+	      <td style="padding: 10px;" valign="top" align="left">
+
+<h2>Introduction to Discrete Mathematics II</h2>
+<hr>
+<p>
+This is a introductory course about Lattice and Mathematic Logic. The necessary prerequisites include set theory, graph theory, and data structure. 
+</p>
+
+<p>
+It covers lattice and its extensions, like Boolean algebra and introduction to first order logic. The part of logic consists of propositional logic and predicate logic. We also discuss syntax and semantics of logic sentence. Soundness theorem,  Completeness theorem, and Compactness theorem also be covered. 
+
+Tableaux proof system is adopted. It is very different with classical tradional axiom-based proof system.
+</p>
+<h3>News</h3>
+<!--
+<h4>2013-05-14</h4>
+Middle term examination was over. You can contact TAs to query your own score. The total score is 80. If yours is below 32, you should work hard! If your score is over 70, you are good and should still keep working.
+<p>
+The schedule of final examination is also released. Please refer to the Schedule page. 
+-->
+<h4>2014-05-02</h4>
+After coordination, the middle examination is arranged on 12 May. The room is 
+Z2108.
+
+<h4>2014-04-21</h4>
+The examination is from 13:30 to 15:30 on 5 May. The room will be determined in next week.
+<p>
+The examination paper in last year is published without reference solution. You can download it from schedule page.
+
+<p>
+It covers lattice and propositional logic only. Don't forget the examination policy - only two piceces of manuscript on A4 paper are allowed. 
+ 
+<!--  End Page Content  -->
+</td></tr> 
+
+</tbody>
+</table> 
+</body>
+</html>
