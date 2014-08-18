@@ -55,7 +55,7 @@ int proxy_main(int argc, char** argv) {
     int ret = proxy_parse_arg(argc, argv);
     if (ret) {
         PLOGD("Cannot parse arguments. Aborting");
-        goto proxy_main_exit;
+        return 0;
     }
 
     net_data_module_init();

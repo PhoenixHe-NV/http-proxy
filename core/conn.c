@@ -16,7 +16,7 @@
 
 #include "conn.h"
 
-#define CONN_IOBUF_SIZE 64*1024 //64k
+#define CONN_IOBUF_SIZE 16*1024 //16K
 
 struct conn_pool_ent {
     struct conn* conn;

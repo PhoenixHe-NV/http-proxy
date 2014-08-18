@@ -9,11 +9,11 @@ http-proxy
 额外完成内容
 =============
 0. 同时支持HTTP 1.1与HTTP 1.0
-1. 支持Connection: keep-alive
+1. 支持Connection: Keep-Alive
 2. 支持CONNECT请求，因此支持https请求
 3. 从监听到转发请求，全面的ipv6支持
 4. 单线程epoll驱动，可支持上千并发请求
-5. 可配置的log文件
+5. 可配置的log文件位置
 6. 可配置的log level，支持verbose模式
 7. 可配置的监听地址，支持监听域名，监听ipv6地址
 
@@ -64,6 +64,6 @@ net_req_handler()和net_rsp_handler()分别在两个不同的调用栈上，因�
 
 1. 在某些情况下proxy会段错误崩溃，原因不明。
 
-2. 长时间使用会有轻微的内存泄露问题，某些连接可能会无法释放，原因不明。一个可行的fix是在net_pull.c中加入超时断开的机制，不过...没时间实现了。
+2. 有一个比较严重的问题：一个context可能会block在一个dns请求上，但是dns缺乏超时机制，导致了所有超时的dns请求会引起内存泄露，并且block掉了整个请求的TCP连接。如果所有dns请求都会超时，那么这是非常个非常严重的问题，所有资源都得不到释放。然而，给getaddrinfo加上一个超时机制，是一件不太容易的事情。
 
 

@@ -213,6 +213,7 @@ static int net_http_rsp_handler(struct net_handle_cxt* cxt,
     if (ret == 0)
         ret = rsp.code;
     
+    // WTF... 
     log_http_req(&client->ep, req->data->buf.p + req->host, 
                  req->data->buf.p + req->path, client->tx);
 

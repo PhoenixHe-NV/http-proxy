@@ -10,15 +10,17 @@ struct proxy_arg_t arg = {
 };
 
 static int usage(char* reason, char* exe) {
-    if (reason) 
+    if (reason) {
         puts(reason);
-    printf("\nUsage: %s [OPTION]... PORT\n", exe);
-    puts("A simple http(s) proxy listen on PORT\n");
+        puts("");
+    }
+    printf("Usage: %s [OPTION]... PORT\n", exe);
+    puts("A simple http proxy listen on PORT\n");
     puts("-v                Logging becomes VERY verbose");
     puts("-a <addrress>     Bind to specific address (can be ipv6 address or domain name)");
     puts("                      Default: 127.0.0.1");
     puts("-l <file>         Logging to log file");
-    puts("                      Default: stderr");
+    puts("                      Default: proxy.log");
     puts("-h                Print this help and exit");
     return -1;
 }
